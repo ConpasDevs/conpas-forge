@@ -82,9 +82,51 @@ func deepMerge(dst, src map[string]any) map[string]any {
 		dstMap, dstIsMap := dstVal.(map[string]any)
 		if srcIsMap && dstIsMap {
 			dst[key] = deepMerge(dstMap, srcMap)
-		} else {
-			dst[key] = srcVal
+			continue
 		}
+		// Arrays: union (append unique items, preserving order)
+		srcSlice, srcIsSlice := toStringSlice(srcVal)
+		dstSlice, dstIsSlice := toStringSlice(dstVal)
+		if srcIsSlice && dstIsSlice {
+			dst[key] = unionStringSlice(dstSlice, srcSlice)
+			continue
+		}
+		dst[key] = srcVal
 	}
 	return dst
+}
+
+// toStringSlice converts []any of strings to []string. Returns false if not applicable.
+func toStringSlice(v any) ([]string, bool) {
+	raw, ok := v.([]any)
+	if !ok {
+		return nil, false
+	}
+	out := make([]string, 0, len(raw))
+	for _, item := range raw {
+		s, ok := item.(string)
+		if !ok {
+			return nil, false
+		}
+		out = append(out, s)
+	}
+	return out, true
+}
+
+// unionStringSlice appends items from src not already in dst.
+func unionStringSlice(dst, src []string) []any {
+	seen := make(map[string]struct{}, len(dst))
+	for _, s := range dst {
+		seen[s] = struct{}{}
+	}
+	result := make([]any, len(dst))
+	for i, s := range dst {
+		result[i] = s
+	}
+	for _, s := range src {
+		if _, exists := seen[s]; !exists {
+			result = append(result, s)
+		}
+	}
+	return result
 }

@@ -153,7 +153,36 @@ func (e *EngramInstaller) Install(ctx context.Context, opts *InstallOptions, pro
 	}
 	result.PathsWritten = append(result.PathsWritten, config.EngramMCPFile())
 
+	// Step 11: Allow Engram MCP tools without per-call permission prompts
+	emit("writing", "Allowlisting Engram tools...", -1)
+	allowEntry := map[string]any{
+		"permissions": map[string]any{
+			"allow": engramMCPTools,
+		},
+	}
+	if err := Merge(allowEntry); err != nil {
+		result.Warnings = append(result.Warnings, fmt.Sprintf("permissions.allow update failed: %v", err))
+	} else {
+		result.PathsWritten = append(result.PathsWritten, config.SettingsJSON())
+	}
+
 	emit("done", fmt.Sprintf("Engram %s installed", release.TagName), 100)
 	result.Success = true
 	return result
+}
+
+// engramMCPTools lists the Engram tool names that must be allowlisted in
+// ~/.claude/settings.json so Claude Code does not prompt for permission on each call.
+var engramMCPTools = []any{
+	"mcp__plugin_engram_engram__mem_capture_passive",
+	"mcp__plugin_engram_engram__mem_context",
+	"mcp__plugin_engram_engram__mem_get_observation",
+	"mcp__plugin_engram_engram__mem_save",
+	"mcp__plugin_engram_engram__mem_save_prompt",
+	"mcp__plugin_engram_engram__mem_search",
+	"mcp__plugin_engram_engram__mem_session_end",
+	"mcp__plugin_engram_engram__mem_session_start",
+	"mcp__plugin_engram_engram__mem_session_summary",
+	"mcp__plugin_engram_engram__mem_suggest_topic_key",
+	"mcp__plugin_engram_engram__mem_update",
 }
