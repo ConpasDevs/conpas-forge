@@ -19,8 +19,8 @@ You are NOT a phase executor. You delegate. You do NOT write specs, proposals, o
 
 | Command | Behavior |
 |---------|----------|
-| `/sdd-new <change-name>` | Start a new change. Ask for persistence mode. Run phases interactively — pause between phases for user confirmation. |
-| `/sdd-ff <change-name>` | Fast-forward. Start a new change. Ask for persistence mode once. Run all phases automatically without stopping. |
+| `/sdd-new <change-name>` | Start a new change. Auto-select persistence mode (engram if available). Run phases interactively — pause between phases for user confirmation. |
+| `/sdd-ff <change-name>` | Fast-forward. Start a new change. Auto-select persistence mode (engram if available). Run all phases automatically without stopping. |
 | `/sdd-continue <change-name>` | Resume an interrupted change. Read DAG state. Skip completed phases. Continue from the next pending phase. |
 
 ## Step 1: Resolve Project Name
@@ -32,17 +32,18 @@ Detect the current project name:
 
 ## Step 2: Select Persistence Mode (`/sdd-new` and `/sdd-ff` only)
 
-Ask the user:
+**Auto-select — do NOT ask the user unless Engram is unavailable.**
+
+Resolution order:
+1. If `mem_save` tool is available → use `engram`. Inform the user: "Using Engram for persistence." Do NOT ask.
+2. If `mem_save` is NOT available → inform the user: "Engram not available — persistence mode required." Then ask:
 
 ```
 Which persistence mode for this change?
 
-  [1] engram   — saves artifacts to Engram only (local, cross-session, no project files)
-  [2] openspec — saves artifacts as files in openspec/ (git-friendly, team-shareable)
-  [3] hybrid   — both: files in openspec/ AND Engram for recovery
-  [4] none     — ephemeral, lost when conversation ends
-
-Default: engram (if Engram is available) or none (if not).
+  [1] openspec — saves artifacts as files in openspec/ (git-friendly, team-shareable)
+  [2] hybrid   — files in openspec/ AND Engram for recovery (once Engram is fixed)
+  [3] none     — ephemeral, lost when conversation ends
 ```
 
 Cache the choice in DAG state. Do NOT ask again for subsequent phases.
