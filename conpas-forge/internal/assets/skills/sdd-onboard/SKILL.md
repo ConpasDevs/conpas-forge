@@ -196,7 +196,7 @@ explore → propose → spec → design → tasks → apply → verify → archi
 Small tweaks? Just code. Features, APIs, architecture decisions? SDD first.
 
 **Next steps**:
-- Try /sdd-new for your next real feature
+- Run /sdd-new <change-name> to start your next change
 - Check openspec/specs/ — that's your growing source of truth
 - Questions? The orchestrator is always available
 ```

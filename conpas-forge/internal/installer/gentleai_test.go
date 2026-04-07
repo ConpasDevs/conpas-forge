@@ -15,7 +15,7 @@ func TestGentleAISkillCount(t *testing.T) {
 		name string
 		want int
 	}{
-		{name: "matches embedded skill list", want: 17},
+		{name: "matches embedded skill list", want: 18},
 	}
 
 	for _, tt := range tests {
@@ -82,8 +82,8 @@ func TestCountGentleAISkillsDeployedMatchesSourceList(t *testing.T) {
 		t.Fatalf("deployed skill count = %d, want %d", got, GentleAISkillCount())
 	}
 
-	if got := fmt.Sprintf("%d skills", CountGentleAISkillsDeployed(paths)); got != "17 skills" {
-		t.Fatalf("formatted deployed skill count = %q, want %q", got, "17 skills")
+	if got := fmt.Sprintf("%d skills", CountGentleAISkillsDeployed(paths)); got != "18 skills" {
+		t.Fatalf("formatted deployed skill count = %q, want %q", got, "18 skills")
 	}
 }
 

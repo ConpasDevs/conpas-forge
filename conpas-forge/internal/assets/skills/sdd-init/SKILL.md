@@ -115,7 +115,7 @@ Determine whether Strict TDD Mode should be enabled. The resolution follows a pr
    └── Include NOTE in summary: "Strict TDD Mode unavailable — no test runner detected"
 ```
 
-**Do NOT ask the user interactively.** The preference is resolved from existing config. If the user wants to change it, they run `gentle-ai sync` with the TUI or set `strict_tdd` in `openspec/config.yaml`.
+**Do NOT ask the user interactively.** The preference is resolved from existing config. If the user wants to change it, they set `strict_tdd` in `openspec/config.yaml` or re-run `/sdd-init`.
 
 ### Step 4: Initialize Persistence Backend
 
