@@ -68,3 +68,9 @@ Output style files are available in `~/.claude/output-styles/`.
 - Conventional commits: feat/fix/chore/refactor/docs/test
 - Issue-first workflow: create GitHub issue before PR
 - Never commit secrets or credentials
+{{- if .EngramProtocol }}
+
+---
+
+{{ .EngramProtocol }}
+{{- end }}

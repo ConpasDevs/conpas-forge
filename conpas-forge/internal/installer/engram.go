@@ -2,6 +2,7 @@ package installer
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -15,6 +16,33 @@ import (
 // Engram GitHub repository — confirmed from exploration
 const engramOwner = "Gentleman-Programming"
 const engramRepo = "engram"
+
+type mcpServerConfig struct {
+	Command string   `json:"command"`
+	Args    []string `json:"args"`
+	Type    string   `json:"type"`
+}
+
+func writeEngramMCPFile(binaryPath string) error {
+	cfg := mcpServerConfig{
+		Command: binaryPath,
+		Args:    []string{"mcp", "--tools=agent"},
+		Type:    "stdio",
+	}
+
+	jsonBytes, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal MCP config: %w", err)
+	}
+	jsonBytes = append(jsonBytes, '\n')
+
+	var roundTrip mcpServerConfig
+	if err := json.Unmarshal(jsonBytes, &roundTrip); err != nil {
+		return fmt.Errorf("MCP config round-trip validation failed: %w", err)
+	}
+
+	return config.AtomicWrite(config.EngramMCPFile(), jsonBytes, 0644)
+}
 
 type EngramInstaller struct {
 	httpClient *http.Client
@@ -117,22 +145,13 @@ func (e *EngramInstaller) Install(ctx context.Context, opts *InstallOptions, pro
 		result.Warnings = append(result.Warnings, PathWarning(config.BinDir(), runtime.GOOS))
 	}
 
-	// Step 10: Merge settings.json
-	emit("writing", "Updating settings.json...", -1)
-	mcpEntry := map[string]any{
-		"mcpServers": map[string]any{
-			"engram": map[string]any{
-				"command": destPath,
-				"type":    "stdio",
-			},
-		},
-	}
-	if err := Merge(mcpEntry); err != nil {
-		result.Err = fmt.Errorf("update settings.json: %w", err)
+	// Step 10: Register MCP server
+	emit("writing", "Registering Engram MCP server...", -1)
+	if err := writeEngramMCPFile(destPath); err != nil {
+		result.Err = fmt.Errorf("write engram MCP file: %w", err)
 		return result
-	} else {
-		result.PathsWritten = append(result.PathsWritten, config.SettingsJSON())
 	}
+	result.PathsWritten = append(result.PathsWritten, config.EngramMCPFile())
 
 	emit("done", fmt.Sprintf("Engram %s installed", release.TagName), 100)
 	result.Success = true

@@ -12,11 +12,12 @@ import (
 )
 
 type CLAUDEMDData struct {
-	PersonaName  string
-	PersonaBlock string
-	ModelRows    []ModelRow
-	Version      string
-	GeneratedAt  string
+	PersonaName    string
+	PersonaBlock   string
+	ModelRows      []ModelRow
+	Version        string
+	GeneratedAt    string
+	EngramProtocol string // content from skills/engram-memory/SKILL.md
 }
 
 type ModelRow struct {
@@ -39,12 +40,18 @@ func BuildCLAUDEMDData(cfg *config.Config, ver string) (*CLAUDEMDData, error) {
 		rows = append(rows, ModelRow{Role: role, Model: model})
 	}
 
+	var engramProtocol string
+	if raw, err := assets.FS.ReadFile("skills/engram-memory/SKILL.md"); err == nil {
+		engramProtocol = string(raw)
+	} // silently ignore read failure — EngramProtocol stays ""
+
 	return &CLAUDEMDData{
-		PersonaName:  cfg.Persona,
-		PersonaBlock: string(content),
-		ModelRows:    rows,
-		Version:      ver,
-		GeneratedAt:  time.Now().Format(time.RFC3339),
+		PersonaName:    cfg.Persona,
+		PersonaBlock:   string(content),
+		ModelRows:      rows,
+		Version:        ver,
+		GeneratedAt:    time.Now().Format(time.RFC3339),
+		EngramProtocol: engramProtocol,
 	}, nil
 }
 
