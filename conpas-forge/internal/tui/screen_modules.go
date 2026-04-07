@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/conpasDEVS/conpas-forge/internal/config"
+	"github.com/conpasDEVS/conpas-forge/internal/installer"
 )
 
 var (
@@ -33,7 +34,7 @@ func NewModulesModel(cfg *config.Config) ModulesModel {
 	return ModulesModel{
 		choices: []ModuleChoice{
 			{ID: "engram", Label: "Engram", Description: "Persistent memory MCP server", Checked: cfg.Modules.Engram.Installed},
-			{ID: "gentle-ai", Label: "Gentle AI Skills", Description: "16 SDD skills + CLAUDE.md + output styles", Checked: cfg.Modules.GentleAI.Installed},
+			{ID: "gentle-ai", Label: "Gentle AI Skills", Description: fmt.Sprintf("%d skills + CLAUDE.md + output styles", installer.GentleAISkillCount()), Checked: cfg.Modules.GentleAI.Installed},
 			{ID: "zoho-deluge", Label: "Zoho Deluge Skill", Description: "Conpas AI coding standard for Zoho Deluge", Checked: cfg.Modules.ZohoDeluge.Installed},
 			{ID: "all", Label: "All modules", Description: "Select all three", Checked: false},
 		},

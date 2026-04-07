@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/conpasDEVS/conpas-forge/internal/config"
@@ -19,14 +20,16 @@ const (
 )
 
 type Model struct {
-	screen    Screen
-	cfg       *config.Config
-	platform  installer.Platform
-	homeDir   string
-	modules   ModulesModel
-	persona   PersonaModel
-	models    ModelsModel
-	summary   SummaryModel
+	screen     Screen
+	cfg        *config.Config
+	platform   installer.Platform
+	homeDir    string
+	installCtx context.Context
+	cancelFn   context.CancelFunc
+	modules    ModulesModel
+	persona    PersonaModel
+	models     ModelsModel
+	summary    SummaryModel
 	installing bool
 	progress   []installer.ProgressEvent
 	results    []installer.Result
@@ -64,8 +67,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
-		if msg.String() == "ctrl+c" && m.screen < ScreenInstall {
+		if msg.String() == "ctrl+c" {
 			m.cancelled = true
+			if m.cancelFn != nil {
+				m.cancelFn()
+			}
 			return m, tea.Quit
 		}
 
@@ -86,6 +92,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ConfirmInstallMsg:
 		m.screen = ScreenInstall
 		m.installing = true
+		m.installCtx, m.cancelFn = context.WithCancel(context.Background())
 		// Update config with TUI selections before installing
 		m.cfg.Persona = m.persona.Selected()
 		m.cfg.Models = m.models.Assignments()
@@ -97,6 +104,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case InstallDoneMsg:
 		m.installing = false
+		if m.cancelFn != nil {
+			m.cancelFn()
+			m.cancelFn = nil
+		}
+		m.installCtx = nil
 		m.results = msg.Results
 		// Update module status in config
 		for _, r := range msg.Results {
@@ -105,12 +117,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cfg.Modules.Engram.Installed = r.Success
 			case "Gentle AI":
 				m.cfg.Modules.GentleAI.Installed = r.Success
-				m.cfg.Modules.GentleAI.SkillsDeployed = 16
+				m.cfg.Modules.GentleAI.SkillsDeployed = installer.CountGentleAISkillsDeployed(r.PathsWritten)
 			case "Zoho Deluge":
 				m.cfg.Modules.ZohoDeluge.Installed = r.Success
 			}
 		}
-		_ = config.Save(m.cfg)
+		if err := config.Save(m.cfg); err != nil {
+			m.results = append(m.results, installer.Result{
+				ModuleName: "Config",
+				Success:    false,
+				Err:        fmt.Errorf("save config: %w", err),
+			})
+		}
 		m.summary = NewSummaryModel(m.results)
 		m.screen = ScreenSummary
 		return m, nil
@@ -164,7 +182,7 @@ func (m Model) progressView() string {
 	return s
 }
 
-func (m Model) Cancelled() bool            { return m.cancelled }
+func (m Model) Cancelled() bool             { return m.cancelled }
 func (m Model) Results() []installer.Result { return m.results }
 func (m Model) SelectedModules() []string   { return m.modules.Selected() }
 
@@ -182,6 +200,10 @@ func (m Model) runPipelineCmd() tea.Cmd {
 	opts := m.Selections()
 	selectedIDs := m.SelectedModules()
 	p := m.program
+	ctx := m.installCtx
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
 	return func() tea.Msg {
 		modules := installer.BuildModules(selectedIDs)
@@ -190,8 +212,7 @@ func (m Model) runPipelineCmd() tea.Cmd {
 				p.Send(ProgressMsg{Event: evt})
 			}
 		}
-		results := installer.RunPipeline(context.Background(), modules, opts, progress)
+		results := installer.RunPipeline(ctx, modules, opts, progress)
 		return InstallDoneMsg{Results: results}
 	}
 }
-

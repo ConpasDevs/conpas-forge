@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 )
@@ -12,36 +11,31 @@ func AtomicWrite(path string, data []byte, perm os.FileMode) error {
 		return fmt.Errorf("create parent directory: %w", err)
 	}
 
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, perm); err != nil {
-		os.Remove(tmp)
+	tmpFile, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return fmt.Errorf("create temp file: %w", err)
+	}
+	tmp := tmpFile.Name()
+	defer os.Remove(tmp)
+
+	if _, err := tmpFile.Write(data); err != nil {
+		tmpFile.Close()
 		return fmt.Errorf("write temp file: %w", err)
 	}
+	if err := tmpFile.Sync(); err != nil {
+		tmpFile.Close()
+		return fmt.Errorf("sync temp file: %w", err)
+	}
+	if err := tmpFile.Close(); err != nil {
+		return fmt.Errorf("close temp file: %w", err)
+	}
+	if err := os.Chmod(tmp, perm); err != nil {
+		return fmt.Errorf("chmod temp file: %w", err)
+	}
 
-	if err := os.Rename(tmp, path); err != nil {
-		if err2 := copyFile(tmp, path, perm); err2 != nil {
-			os.Remove(tmp)
-			return fmt.Errorf("rename failed (%w) and copy fallback failed: %w", err, err2)
-		}
-		os.Remove(tmp)
+	if err := replaceFileAtomic(tmp, path); err != nil {
+		return fmt.Errorf("replace file atomically: %w", err)
 	}
 
 	return nil
-}
-
-func copyFile(src, dst string, perm os.FileMode) error {
-	srcF, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer srcF.Close()
-
-	dstF, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, perm)
-	if err != nil {
-		return err
-	}
-	defer dstF.Close()
-
-	_, err = io.Copy(dstF, srcF)
-	return err
 }

@@ -84,6 +84,10 @@ func FetchChecksumHex(ctx context.Context, client *http.Client, asset *GitHubAss
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("checksum HTTP error: %s", resp.Status)
+	}
+
 	var lines []string
 	scanner := bufio.NewScanner(resp.Body)
 	for scanner.Scan() {
@@ -103,8 +107,8 @@ func FetchChecksumHex(ctx context.Context, client *http.Client, asset *GitHubAss
 		}
 	}
 
-	// Bare-hex fallback: single-line file containing only the hex digest
-	if len(lines) == 1 {
+	// Bare-hex fallback: only valid for asset-specific checksum files.
+	if len(lines) == 1 && asset.Name == archiveAssetName+".sha256" {
 		hex := strings.TrimSpace(lines[0])
 		if len(hex) == 64 && !strings.ContainsAny(hex, " \t/") {
 			return hex, nil

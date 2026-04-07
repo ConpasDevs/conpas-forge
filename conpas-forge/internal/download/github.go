@@ -58,13 +58,23 @@ func SelectAsset(release *GitHubRelease, goos, goarch string) (archiveAsset *Git
 		if strings.Contains(name, pattern) && strings.HasSuffix(name, ext) {
 			archiveAsset = asset
 		}
-		if name == "checksums.txt" || strings.HasSuffix(name, ".sha256") {
-			checksumAsset = asset
-		}
 	}
 
 	if archiveAsset == nil {
 		return nil, nil, fmt.Errorf("no engram release asset found for %s/%s", goos, goarch)
+	}
+
+	archiveChecksumName := archiveAsset.Name + ".sha256"
+	for i := range release.Assets {
+		asset := &release.Assets[i]
+		switch asset.Name {
+		case archiveChecksumName:
+			return archiveAsset, asset, nil
+		case "checksums.txt":
+			if checksumAsset == nil {
+				checksumAsset = asset
+			}
+		}
 	}
 	return archiveAsset, checksumAsset, nil
 }

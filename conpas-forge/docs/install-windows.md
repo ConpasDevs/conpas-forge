@@ -157,6 +157,7 @@ Debes ver una lista de carpetas (sdd-init, sdd-apply, zoho-deluge, etc.).
 |----------|----------|
 | `'conpas-forge' no se reconoce como comando` | Asegúrate de estar en la carpeta donde está el `.exe` y usar `.\` antes del nombre |
 | El módulo Engram falla al descargar | Verifica tu conexión a internet. Si hay un proxy corporativo, puede estar bloqueando la descarga |
+<<<<<<< HEAD
 | `claude --version` no funciona | Cierra y vuelve a abrir PowerShell tras instalar Claude Code |
 | La terminal muestra caracteres extraños | Usa **Windows Terminal** en lugar de CMD clásico |
 

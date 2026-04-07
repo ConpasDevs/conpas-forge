@@ -44,6 +44,7 @@ func ClaudeDir() string           { return filepath.Join(HomeDir(), ".claude") }
 func ClaudeMD() string            { return filepath.Join(ClaudeDir(), "CLAUDE.md") }
 func SettingsJSON() string        { return filepath.Join(ClaudeDir(), "settings.json") }
 func SettingsJSONBak() string     { return filepath.Join(ClaudeDir(), "settings.json.bak") }
+func OutputStylesDir() string     { return filepath.Join(ClaudeDir(), "output-styles") }
 func SkillsDir() string           { return filepath.Join(ClaudeDir(), "skills") }
 func SkillDir(name string) string { return filepath.Join(SkillsDir(), name) }
 func SharedSkillsDir() string     { return filepath.Join(SkillsDir(), "_shared") }

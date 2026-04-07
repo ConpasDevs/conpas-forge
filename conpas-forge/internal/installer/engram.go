@@ -69,7 +69,8 @@ func (e *EngramInstaller) Install(ctx context.Context, opts *InstallOptions, pro
 		emit("verifying", "Verifying checksum...", -1)
 		expectedHex, err := download.FetchChecksumHex(ctx, e.httpClient, checksumAsset, archiveAsset.Name)
 		if err != nil {
-			result.Warnings = append(result.Warnings, fmt.Sprintf("checksum fetch failed (skipping): %v", err))
+			result.Err = fmt.Errorf("fetch checksum for %s: %w", archiveAsset.Name, err)
+			return result
 		} else {
 			if err := download.VerifyChecksum(tmpPath, expectedHex); err != nil {
 				result.Err = fmt.Errorf("checksum verification: %w", err)
@@ -77,7 +78,8 @@ func (e *EngramInstaller) Install(ctx context.Context, opts *InstallOptions, pro
 			}
 		}
 	} else {
-		result.Warnings = append(result.Warnings, "no checksum asset found — skipping verification")
+		result.Err = fmt.Errorf("no checksum asset found for %s", archiveAsset.Name)
+		return result
 	}
 
 	// Step 6: Extract binary
@@ -126,7 +128,8 @@ func (e *EngramInstaller) Install(ctx context.Context, opts *InstallOptions, pro
 		},
 	}
 	if err := Merge(mcpEntry); err != nil {
-		result.Warnings = append(result.Warnings, fmt.Sprintf("settings.json update failed: %v", err))
+		result.Err = fmt.Errorf("update settings.json: %w", err)
+		return result
 	} else {
 		result.PathsWritten = append(result.PathsWritten, config.SettingsJSON())
 	}

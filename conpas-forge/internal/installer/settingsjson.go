@@ -13,16 +13,14 @@ func Merge(newEntries map[string]any) error {
 	settingsPath := config.SettingsJSON()
 	bakPath := config.SettingsJSONBak()
 
-	// Layer 1: immutable backup (create once, never overwrite)
+	// Layer 1: refresh rollback backup before each merge
 	if _, err := os.Stat(settingsPath); err == nil {
-		if _, err := os.Stat(bakPath); os.IsNotExist(err) {
-			data, err := os.ReadFile(settingsPath)
-			if err != nil {
-				return fmt.Errorf("read settings for backup: %w", err)
-			}
-			if err := config.AtomicWrite(bakPath, data, 0644); err != nil {
-				return fmt.Errorf("create settings backup: %w", err)
-			}
+		data, err := os.ReadFile(settingsPath)
+		if err != nil {
+			return fmt.Errorf("read settings for backup: %w", err)
+		}
+		if err := config.AtomicWrite(bakPath, data, 0644); err != nil {
+			return fmt.Errorf("refresh settings backup: %w", err)
 		}
 	}
 

@@ -149,6 +149,7 @@ Debes ver una lista de carpetas (sdd-init, sdd-apply, zoho-deluge, etc.).
 | El módulo Engram falla al descargar | Verifica tu conexión a internet. Si hay un proxy corporativo, puede estar bloqueando la descarga |
 | `claude --version` no funciona | Ejecuta `source ~/.bashrc` (o `~/.zshrc`) y vuelve a intentarlo |
 | La interfaz no se muestra bien | Usa un emulador de terminal moderno (GNOME Terminal, Alacritty, Kitty). Evita terminales muy básicos |
+<<<<<<< HEAD
 | Error en Alpine / musl | Instala `libgcc` y `libstdc++` antes de ejecutar el script de Claude Code |
 
 ---
