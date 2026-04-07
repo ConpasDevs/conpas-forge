@@ -1,7 +1,9 @@
 package installer
 
 import (
+	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -82,5 +84,38 @@ func TestCountGentleAISkillsDeployedMatchesSourceList(t *testing.T) {
 
 	if got := fmt.Sprintf("%d skills", CountGentleAISkillsDeployed(paths)); got != "17 skills" {
 		t.Fatalf("formatted deployed skill count = %q, want %q", got, "17 skills")
+	}
+}
+
+func TestGentleAIInstallerFailsOnPartialDeployment(t *testing.T) {
+	homeDir := t.TempDir()
+	oldHomeDir := config.HomeDir()
+	config.OverrideHomeDir(homeDir)
+	defer config.OverrideHomeDir(oldHomeDir)
+
+	tests := []struct {
+		name string
+	}{
+		{name: "write failures return installer error"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := os.MkdirAll(config.ClaudeDir(), 0755); err != nil {
+				t.Fatalf("mkdir claude dir: %v", err)
+			}
+			if err := os.WriteFile(config.SkillsDir(), []byte("blocked"), 0644); err != nil {
+				t.Fatalf("block skills dir: %v", err)
+			}
+
+			cfg := config.DefaultConfig()
+			result := NewGentleAIInstaller().Install(context.Background(), &InstallOptions{Config: &cfg}, nil)
+			if result.Err == nil {
+				t.Fatal("expected installer error, got nil")
+			}
+			if result.Success {
+				t.Fatal("expected installer success=false on partial deployment")
+			}
+		})
 	}
 }
