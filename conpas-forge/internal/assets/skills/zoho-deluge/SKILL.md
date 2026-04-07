@@ -101,7 +101,39 @@ Mandatory coding standard for Zoho Deluge development. Focused on **Extreme Stat
 *   **SOLUTION:** Perform ALL necessary calculations (sums, counts, updates) in a **single iteration** of the loop.
     *   *Benefit:* Reduces complexity from O(2n) to O(n), saving execution statements.
 
-## VI. Portability & Environment
+## VI. Naming Conventions (Creator Specific)
+
+### 11. Forms
+*   **Display name:** `form_X` where `X` is the descriptive name (e.g., `form_ClientOrder`).
+*   **API name:** `form_X` in camelCase, replacing accented characters with their unaccented equivalents (e.g., `form_clientOrder`).
+*   **Rule:** Every form must follow this prefix — no exceptions.
+
+### 12. Reports
+*   **Main report per form:** `form_X_report` — one mandatory report per form containing ALL fields and configured as a list.
+    *   API name: `form_X_report` in camelCase.
+*   **Page-specific report:** `report_X_pageName` — created only when used in a page, containing only the fields needed for that context.
+    *   API name: `report_X_pageName` in camelCase.
+*   **Rule:** At minimum one `form_X_report` must exist per form before a page report is created.
+
+### 13. Pages
+*   **Display name:** `page_X` where `X` is the descriptive name.
+*   **API name:** `page_X` in camelCase, replacing accented characters.
+
+### 14. Custom Actions
+*   **Display name:** `ca_X` where `X` describes the action (e.g., `ca_SendInvoice`).
+*   **API name:** `ca_X` in camelCase, replacing accented characters.
+
+### 15. API Name General Rules
+*   **Always camelCase:** All API names (forms, reports, pages, functions, variables, custom actions) use camelCase.
+*   **No accents:** Replace `á→a`, `é→e`, `í→i`, `ó→o`, `ú→u`, `ñ→n`.
+*   **No spaces or special characters:** Use underscore `_` only as the prefix separator (`form_`, `report_`, `page_`, `ca_`). The `X` part itself is camelCase with no underscores.
+
+### 16. Function Reuse
+*   **MANDATORY:** Extract repeated logic (>3 occurrences or >10 lines) into **Global Functions**.
+*   **Naming:** `namespace_verbNoun` pattern (e.g., `thisapp.orders.calculateTotalTax`).
+*   **Goal:** No duplicated business logic across events or forms. A single change must propagate everywhere automatically.
+
+## VII. Portability & Environment
 
 ### 10. Dynamic URLs
 *   **FORBIDDEN:** Hardcoding domains or usernames in URLs (e.g., `https://creator.zoho.eu/user/...`).
