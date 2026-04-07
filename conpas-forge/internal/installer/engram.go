@@ -153,26 +153,15 @@ func (e *EngramInstaller) Install(ctx context.Context, opts *InstallOptions, pro
 	}
 	result.PathsWritten = append(result.PathsWritten, config.EngramMCPFile())
 
-	// Step 11: Enable Engram as a plugin + allowlist MCP tools
-	emit("writing", "Configuring Engram plugin...", -1)
-	pluginEntry := map[string]any{
-		"enabledPlugins": map[string]any{
-			"engram@engram": true,
-		},
-		"extraKnownMarketplaces": map[string]any{
-			"engram": map[string]any{
-				"source": map[string]any{
-					"source": "github",
-					"repo":   "Gentleman-Programming/engram",
-				},
-			},
-		},
+	// Step 11: Allowlist Engram MCP tools (no marketplace — uses local binary via mcp file)
+	emit("writing", "Allowlisting Engram tools...", -1)
+	allowEntry := map[string]any{
 		"permissions": map[string]any{
 			"allow": engramMCPTools,
 		},
 	}
-	if err := Merge(pluginEntry); err != nil {
-		result.Warnings = append(result.Warnings, fmt.Sprintf("settings.json plugin config failed: %v", err))
+	if err := Merge(allowEntry); err != nil {
+		result.Warnings = append(result.Warnings, fmt.Sprintf("permissions.allow update failed: %v", err))
 	} else {
 		result.PathsWritten = append(result.PathsWritten, config.SettingsJSON())
 	}
