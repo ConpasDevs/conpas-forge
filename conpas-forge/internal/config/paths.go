@@ -40,6 +40,7 @@ func EngramBinary() string {
 	return filepath.Join(BinDir(), name)
 }
 
+func ClaudeJSON() string          { return filepath.Join(HomeDir(), ".claude.json") }
 func ClaudeDir() string           { return filepath.Join(HomeDir(), ".claude") }
 func ClaudeMD() string            { return filepath.Join(ClaudeDir(), "CLAUDE.md") }
 func SettingsJSON() string        { return filepath.Join(ClaudeDir(), "settings.json") }

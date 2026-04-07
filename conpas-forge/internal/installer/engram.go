@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/conpasDEVS/conpas-forge/internal/config"
@@ -117,22 +119,13 @@ func (e *EngramInstaller) Install(ctx context.Context, opts *InstallOptions, pro
 		result.Warnings = append(result.Warnings, PathWarning(config.BinDir(), runtime.GOOS))
 	}
 
-	// Step 10: Register MCP server in settings.json
+	// Step 10: Register MCP server via `claude mcp add --scope user`
 	emit("writing", "Registering Engram MCP server...", -1)
-	mcpEntry := map[string]any{
-		"mcpServers": map[string]any{
-			"engram": map[string]any{
-				"command": destPath,
-				"args":    []any{"mcp", "--tools=agent"},
-				"type":    "stdio",
-			},
-		},
-	}
-	if err := Merge(mcpEntry); err != nil {
-		result.Err = fmt.Errorf("register engram MCP in settings.json: %w", err)
+	if err := registerEngramMCP(ctx, destPath); err != nil {
+		result.Err = fmt.Errorf("register engram MCP: %w", err)
 		return result
 	}
-	result.PathsWritten = append(result.PathsWritten, config.SettingsJSON())
+	result.PathsWritten = append(result.PathsWritten, config.ClaudeJSON())
 
 	// Step 11: Allowlist Engram MCP tools (no marketplace — uses local binary via mcp file)
 	emit("writing", "Allowlisting Engram tools...", -1)
@@ -150,6 +143,33 @@ func (e *EngramInstaller) Install(ctx context.Context, opts *InstallOptions, pro
 	emit("done", fmt.Sprintf("Engram %s installed", release.TagName), 100)
 	result.Success = true
 	return result
+}
+
+// registerEngramMCP registers the Engram binary as a user-scoped MCP server
+// via `claude mcp add --scope user engram -- <binary> mcp --tools=agent`.
+// If engram is already registered, it removes the old entry first (idempotent re-install).
+func registerEngramMCP(ctx context.Context, binaryPath string) error {
+	claudePath, err := exec.LookPath("claude")
+	if err != nil {
+		return fmt.Errorf("'claude' not found in PATH — install Claude Code first: %w", err)
+	}
+
+	// Remove existing entry if present (idempotent re-install)
+	removeCmd := exec.CommandContext(ctx, claudePath, "mcp", "remove", "engram", "--scope", "user")
+	_ = removeCmd.Run() // ignore error — entry may not exist
+
+	addCmd := exec.CommandContext(ctx, claudePath,
+		"mcp", "add",
+		"--scope", "user",
+		"engram",
+		"--",
+		binaryPath, "mcp", "--tools=agent",
+	)
+	out, err := addCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("claude mcp add failed: %w\noutput: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
 }
 
 // engramMCPTools lists the Engram tool names that must be allowlisted in
