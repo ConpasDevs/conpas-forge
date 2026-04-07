@@ -10,11 +10,12 @@ import (
 )
 
 type Config struct {
-	Version int               `yaml:"version"`
-	Persona string            `yaml:"persona"`
-	Models  map[string]string `yaml:"models"`
-	Modules ModulesConfig     `yaml:"modules"`
-	Engram  EngramConfig      `yaml:"engram"`
+	Version      int               `yaml:"version"`
+	Persona      string            `yaml:"persona"`
+	Models       map[string]string `yaml:"models"`
+	Modules      ModulesConfig     `yaml:"modules"`
+	Engram       EngramConfig      `yaml:"engram"`
+	SddStrictTDD string            `yaml:"sdd_strict_tdd,omitempty"` // "enabled" | "disabled" | "" (empty = auto-detect)
 }
 
 type ModulesConfig struct {

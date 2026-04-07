@@ -18,6 +18,7 @@ type CLAUDEMDData struct {
 	Version        string
 	GeneratedAt    string
 	EngramProtocol string // content from skills/engram-memory/SKILL.md
+	SddStrictTDD   string // "enabled" | "disabled" | "" (empty = not rendered, sdd-init auto-detects)
 }
 
 type ModelRow struct {
@@ -52,6 +53,7 @@ func BuildCLAUDEMDData(cfg *config.Config, ver string) (*CLAUDEMDData, error) {
 		Version:        ver,
 		GeneratedAt:    time.Now().Format(time.RFC3339),
 		EngramProtocol: engramProtocol,
+		SddStrictTDD:   cfg.SddStrictTDD,
 	}, nil
 }
 

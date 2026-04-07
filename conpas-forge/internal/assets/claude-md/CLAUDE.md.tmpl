@@ -31,6 +31,7 @@ When launching SDD sub-agents, use these model assignments:
 The following skills are installed in `~/.claude/skills/`:
 
 ### SDD Workflow
+- `sdd-orchestrator` — **Entry point**: run `/sdd-new`, `/sdd-ff`, or `/sdd-continue` to start
 - `sdd-init` — Initialize SDD context in a project
 - `sdd-explore` — Investigate ideas before committing to a change
 - `sdd-propose` — Create a change proposal with intent, scope, and approach
@@ -58,6 +59,21 @@ The following skills are installed in `~/.claude/skills/`:
 ## Output Styles
 
 Output style files are available in `~/.claude/output-styles/`.
+
+---
+
+## SDD Usage
+
+Start a new change:
+- `/sdd-new <change-name>` — interactive, pauses between phases for confirmation
+- `/sdd-ff <change-name>` — fast-forward, runs all phases automatically
+- `/sdd-continue <change-name>` — resume an interrupted change from last completed phase
+
+Initialize SDD in a project first: `/sdd-init`
+{{- if .SddStrictTDD }}
+
+<!-- strict-tdd-mode: {{ .SddStrictTDD }} -->
+{{- end }}
 
 ---
 

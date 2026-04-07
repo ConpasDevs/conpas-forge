@@ -16,7 +16,7 @@ import (
 var sddSkills = []string{
 	"sdd-init", "sdd-explore", "sdd-propose", "sdd-spec",
 	"sdd-design", "sdd-tasks", "sdd-apply", "sdd-verify",
-	"sdd-archive", "sdd-onboard", "engram-memory",
+	"sdd-archive", "sdd-onboard", "sdd-orchestrator", "engram-memory",
 	"branch-pr", "issue-creation", "judgment-day",
 	"go-testing",
 	"skill-creator", "skill-registry",
