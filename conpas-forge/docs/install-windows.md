@@ -13,40 +13,60 @@
 
 ## Requisitos previos
 
-Antes de ejecutar el instalador, necesitas tener lo siguiente instalado y funcionando.
+### 1. Claude Code
 
-### 1. Node.js (versión 18 o superior)
+Claude Code es la interfaz de Anthropic para trabajar con IA en tu terminal y editor. Es el requisito principal — `conpas-forge` configura el entorno dentro de Claude Code.
 
-Claude Code requiere Node.js para funcionar.
+Tienes tres formas de instalarlo. **Elige una:**
 
-1. Abre el navegador y ve a [nodejs.org](https://nodejs.org)
-2. Descarga la versión **LTS** (la recomendada)
-3. Ejecuta el instalador y sigue los pasos (opciones por defecto son correctas)
-4. Verifica la instalación abriendo PowerShell y ejecutando:
+---
+
+#### Opción A — App de escritorio (recomendada para la mayoría)
+
+La forma más sencilla. No requiere Node.js ni ninguna otra dependencia.
+
+1. Descarga el instalador:
+   - [Windows x64 (Intel/AMD)](https://claude.ai/api/desktop/win32/x64/setup/latest/redirect)
+   - [Windows ARM64 (Surface Pro X, Copilot+ PCs)](https://claude.ai/api/desktop/win32/arm64/setup/latest/redirect)
+2. Ejecuta el `.exe` descargado y sigue los pasos
+3. Al finalizar, tendrás la app de Claude Code en tu escritorio
+
+> Esta opción instala una interfaz gráfica. Para usar el comando `claude` desde la terminal (que es lo que usa `conpas-forge`), también debes instalar el CLI con la Opción B o C.
+
+---
+
+#### Opción B — Script de instalación (recomendada si usas la terminal)
+
+Instala el CLI de Claude Code directamente. No requiere Node.js. Se actualiza automáticamente.
+
+1. Abre **PowerShell** y ejecuta:
    ```powershell
-   node --version
+   irm https://claude.ai/install.ps1 | iex
    ```
-   Debe mostrar algo como `v20.x.x`.
-
-### 2. Claude Code CLI
-
-Claude Code es la interfaz de línea de comandos de Anthropic para trabajar con IA en tu terminal y editor.
-
-1. Abre **PowerShell** como administrador
-2. Ejecuta:
-   ```powershell
-   npm install -g @anthropic-ai/claude-code
-   ```
-3. Verifica:
+2. Verifica que se instaló correctamente:
    ```powershell
    claude --version
    ```
 
-> Si no tienes cuenta de Anthropic, créala en [claude.ai](https://claude.ai) antes de continuar.
+---
+
+#### Opción C — WinGet
+
+Si ya usas el gestor de paquetes de Windows:
+
+```powershell
+winget install Anthropic.ClaudeCode
+```
+
+---
+
+### 2. Cuenta de Anthropic
+
+Necesitas una cuenta activa en [claude.ai](https://claude.ai) para autenticarte con Claude Code. Si no tienes, créala antes de continuar.
 
 ### 3. Conexión a internet
 
-El instalador descarga el binario de **Engram** desde GitHub durante la instalación. Necesitas acceso a internet.
+El instalador descarga el binario de **Engram** desde GitHub durante la instalación.
 
 ---
 
@@ -137,7 +157,7 @@ Debes ver una lista de carpetas (sdd-init, sdd-apply, zoho-deluge, etc.).
 |----------|----------|
 | `'conpas-forge' no se reconoce como comando` | Asegúrate de estar en la carpeta donde está el `.exe` y usar `.\` antes del nombre |
 | El módulo Engram falla al descargar | Verifica tu conexión a internet. Si hay un proxy corporativo, puede estar bloqueando la descarga |
-| `claude --version` no funciona | Cierra y vuelve a abrir PowerShell tras instalar Node.js y Claude Code |
+| `claude --version` no funciona | Cierra y vuelve a abrir PowerShell tras instalar Claude Code |
 | La terminal muestra caracteres extraños | Usa **Windows Terminal** en lugar de CMD clásico |
 
 ---

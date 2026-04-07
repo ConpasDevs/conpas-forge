@@ -13,53 +13,45 @@
 
 ## Requisitos previos
 
-Antes de ejecutar el instalador, necesitas tener lo siguiente instalado y funcionando.
+### 1. Claude Code
 
-### 1. Node.js (versión 18 o superior)
+Claude Code es la interfaz de Anthropic para trabajar con IA en tu terminal y editor. Es el requisito principal — `conpas-forge` configura el entorno dentro de Claude Code.
 
-Claude Code requiere Node.js para funcionar.
+> **Nota:** No existe app de escritorio de Claude Code para Linux. La instalación es únicamente por línea de comandos.
 
-**Ubuntu / Debian:**
-```bash
-curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
-sudo apt-get install -y nodejs
-```
-
-**Fedora / RHEL / CentOS:**
-```bash
-curl -fsSL https://rpm.nodesource.com/setup_lts.x | sudo bash -
-sudo dnf install -y nodejs
-```
-
-**Arch Linux:**
-```bash
-sudo pacman -S nodejs npm
-```
-
-Verifica la instalación:
-```bash
-node --version
-```
-Debe mostrar algo como `v20.x.x`.
-
-### 2. Claude Code CLI
-
-Claude Code es la interfaz de línea de comandos de Anthropic para trabajar con IA en tu terminal y editor.
+#### Instalación recomendada — Script oficial (sin Node.js)
 
 ```bash
-npm install -g @anthropic-ai/claude-code
+curl -fsSL https://claude.ai/install.sh | bash
 ```
 
-Verifica:
+Una vez instalado, verifica:
+
 ```bash
 claude --version
 ```
 
-> Si no tienes cuenta de Anthropic, créala en [claude.ai](https://claude.ai) antes de continuar.
+El script se encarga de todo automáticamente y configura las actualizaciones.
+
+#### Alternativa — Homebrew (si ya lo tienes instalado)
+
+```bash
+brew install --cask claude-code
+```
+
+---
+
+> **Nota sobre Alpine Linux / musl libc:** Si usas Alpine u otra distro con musl en lugar de glibc, necesitas instalar `libgcc` y `libstdc++` antes de ejecutar el script de instalación.
+
+---
+
+### 2. Cuenta de Anthropic
+
+Necesitas una cuenta activa en [claude.ai](https://claude.ai) para autenticarte con Claude Code. Si no tienes, créala antes de continuar.
 
 ### 3. Conexión a internet
 
-El instalador descarga el binario de **Engram** desde GitHub durante la instalación. Necesitas acceso a internet.
+El instalador descarga el binario de **Engram** desde GitHub durante la instalación.
 
 ---
 
@@ -157,7 +149,7 @@ Debes ver una lista de carpetas (sdd-init, sdd-apply, zoho-deluge, etc.).
 | El módulo Engram falla al descargar | Verifica tu conexión a internet. Si hay un proxy corporativo, puede estar bloqueando la descarga |
 | `claude --version` no funciona | Ejecuta `source ~/.bashrc` (o `~/.zshrc`) y vuelve a intentarlo |
 | La interfaz no se muestra bien | Usa un emulador de terminal moderno (GNOME Terminal, Alacritty, Kitty). Evita terminales muy básicos |
-| `npm install -g` falla por permisos | Configura npm para instalar paquetes globales sin sudo: [guía npm](https://docs.npmjs.com/resolving-eacces-permissions-errors-when-installing-packages-globally) |
+| Error en Alpine / musl | Instala `libgcc` y `libstdc++` antes de ejecutar el script de Claude Code |
 
 ---
 
