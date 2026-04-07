@@ -47,4 +47,3 @@ func SettingsJSONBak() string     { return filepath.Join(ClaudeDir(), "settings.
 func SkillsDir() string           { return filepath.Join(ClaudeDir(), "skills") }
 func SkillDir(name string) string { return filepath.Join(SkillsDir(), name) }
 func SharedSkillsDir() string     { return filepath.Join(SkillsDir(), "_shared") }
-func OutputStylesDir() string     { return filepath.Join(ClaudeDir(), "output-styles") }

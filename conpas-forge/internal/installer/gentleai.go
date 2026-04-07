@@ -22,6 +22,29 @@ var sddSkills = []string{
 	"skill-creator", "skill-registry",
 }
 
+func GentleAISkillCount() int {
+	return len(sddSkills)
+}
+
+func CountGentleAISkillsDeployed(paths []string) int {
+	skillsDir := config.SkillsDir()
+	sharedDir := config.SharedSkillsDir()
+	count := 0
+	for _, path := range paths {
+		if filepath.Base(path) != "SKILL.md" {
+			continue
+		}
+		if filepath.Dir(path) == sharedDir {
+			continue
+		}
+		if filepath.Dir(filepath.Dir(path)) != skillsDir {
+			continue
+		}
+		count++
+	}
+	return count
+}
+
 type GentleAIInstaller struct{}
 
 func NewGentleAIInstaller() *GentleAIInstaller { return &GentleAIInstaller{} }
@@ -80,27 +103,6 @@ func (g *GentleAIInstaller) Install(ctx context.Context, opts *InstallOptions, p
 			dest := filepath.Join(config.SharedSkillsDir(), e.Name())
 			if err := config.AtomicWrite(dest, data, 0644); err != nil {
 				result.Warnings = append(result.Warnings, fmt.Sprintf("write _shared/%s: %v", e.Name(), err))
-				continue
-			}
-			result.PathsWritten = append(result.PathsWritten, dest)
-		}
-	}
-
-	// Step 4: Deploy output-styles
-	emit("writing", "Deploying output styles...")
-	if entries, err := assets.FS.ReadDir("output-styles"); err == nil {
-		for _, e := range entries {
-			if e.IsDir() || strings.HasPrefix(e.Name(), ".") || e.Name() == "placeholder.txt" {
-				continue
-			}
-			data, err := assets.FS.ReadFile("output-styles/" + e.Name())
-			if err != nil {
-				result.Warnings = append(result.Warnings, fmt.Sprintf("read output-style %s: %v", e.Name(), err))
-				continue
-			}
-			dest := filepath.Join(config.OutputStylesDir(), e.Name())
-			if err := config.AtomicWrite(dest, data, 0644); err != nil {
-				result.Warnings = append(result.Warnings, fmt.Sprintf("write output-style %s: %v", e.Name(), err))
 				continue
 			}
 			result.PathsWritten = append(result.PathsWritten, dest)
