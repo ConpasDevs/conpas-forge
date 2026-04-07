@@ -84,9 +84,17 @@ func FetchChecksumHex(ctx context.Context, client *http.Client, asset *GitHubAss
 	}
 	defer resp.Body.Close()
 
+	var lines []string
 	scanner := bufio.NewScanner(resp.Body)
 	for scanner.Scan() {
-		line := scanner.Text()
+		lines = append(lines, scanner.Text())
+	}
+	if err := scanner.Err(); err != nil {
+		return "", fmt.Errorf("scan checksum file: %w", err)
+	}
+
+	// Multi-line checksums.txt: find the line containing the archive name
+	for _, line := range lines {
 		if strings.Contains(line, archiveAssetName) {
 			parts := strings.Fields(line)
 			if len(parts) >= 1 {
@@ -94,8 +102,13 @@ func FetchChecksumHex(ctx context.Context, client *http.Client, asset *GitHubAss
 			}
 		}
 	}
-	if err := scanner.Err(); err != nil {
-		return "", fmt.Errorf("scan checksum file: %w", err)
+
+	// Bare-hex fallback: single-line file containing only the hex digest
+	if len(lines) == 1 {
+		hex := strings.TrimSpace(lines[0])
+		if len(hex) == 64 && !strings.ContainsAny(hex, " \t/") {
+			return hex, nil
+		}
 	}
 
 	return "", fmt.Errorf("checksum for %q not found in asset", archiveAssetName)

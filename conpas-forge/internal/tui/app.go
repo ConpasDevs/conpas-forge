@@ -27,12 +27,13 @@ type Model struct {
 	persona   PersonaModel
 	models    ModelsModel
 	summary   SummaryModel
-	progress  []installer.ProgressEvent
-	results   []installer.Result
-	width     int
-	height    int
-	cancelled bool
-	program   *tea.Program
+	installing bool
+	progress   []installer.ProgressEvent
+	results    []installer.Result
+	width      int
+	height     int
+	cancelled  bool
+	program    *tea.Program
 }
 
 func New(cfg *config.Config, platform installer.Platform, homeDir string) Model {
@@ -84,6 +85,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ConfirmInstallMsg:
 		m.screen = ScreenInstall
+		m.installing = true
 		// Update config with TUI selections before installing
 		m.cfg.Persona = m.persona.Selected()
 		m.cfg.Models = m.models.Assignments()
@@ -94,6 +96,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case InstallDoneMsg:
+		m.installing = false
 		m.results = msg.Results
 		// Update module status in config
 		for _, r := range msg.Results {

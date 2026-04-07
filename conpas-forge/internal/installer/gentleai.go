@@ -12,12 +12,13 @@ import (
 	"github.com/conpasDEVS/conpas-forge/internal/version"
 )
 
-// sddSkills lists the 16 SDD skill names from gentle-ai (excludes zoho-deluge).
+// sddSkills lists the SDD skill names from gentle-ai (excludes zoho-deluge).
 var sddSkills = []string{
 	"sdd-init", "sdd-explore", "sdd-propose", "sdd-spec",
 	"sdd-design", "sdd-tasks", "sdd-apply", "sdd-verify",
 	"sdd-archive", "sdd-onboard", "engram-memory",
 	"branch-pr", "issue-creation", "judgment-day",
+	"go-testing",
 	"skill-creator", "skill-registry",
 }
 
