@@ -17,5 +17,5 @@ func BinaryName(goos string) string {
 }
 
 func AssetPattern(goos, goarch string) string {
-	return fmt.Sprintf("engram_%s_%s", goos, goarch)
+	return fmt.Sprintf("_%s_%s", goos, goarch)
 }
