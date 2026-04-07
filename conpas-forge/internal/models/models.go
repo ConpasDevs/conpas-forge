@@ -33,6 +33,7 @@ var ValidPersonas = []string{
 	"argentino",
 	"asturiano",
 	"galleguinho",
+	"neutra",
 	"sargento",
 	"tony-stark",
 	"yoda",
