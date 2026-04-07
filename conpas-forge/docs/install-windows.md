@@ -74,15 +74,13 @@ El instalador descarga el binario de **Engram** desde GitHub durante la instalac
 
 ### Paso 1 — Obtener el instalador
 
-Descarga el archivo `conpas-forge-windows-amd64.exe` desde el repositorio:
+Descarga `conpas-forge-windows-amd64.exe` desde la página de releases:
 
 ```
-https://github.com/ConpasDevs/conpas-forge
+https://github.com/ConpasDevs/conpas-forge/releases/latest
 ```
 
-Ve a la carpeta `dist/` del repositorio y descarga el `.exe`.
-
-O bien, si te lo ha compartido un compañero, copia el archivo a una carpeta de tu elección (por ejemplo `C:\Tools\`).
+Haz clic en `conpas-forge-windows-amd64.exe` para descargarlo. Guárdalo en una carpeta de tu elección (por ejemplo `C:\Tools\`).
 
 ### Paso 2 — Abrir PowerShell en la carpeta del instalador
 

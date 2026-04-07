@@ -62,7 +62,7 @@ El instalador descarga el binario de **Engram** desde GitHub durante la instalac
 **Opción A — Descargar desde GitHub:**
 
 ```bash
-curl -L https://github.com/ConpasDevs/conpas-forge/raw/main/dist/conpas-forge-linux-amd64 -o conpas-forge
+curl -L https://github.com/ConpasDevs/conpas-forge/releases/latest/download/conpas-forge-linux-amd64 -o conpas-forge
 ```
 
 **Opción B — Si un compañero te lo compartió:**
