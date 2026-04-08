@@ -138,17 +138,9 @@ For each test case, produce:
 - **Análisis** (initial value): `✓` (code analysis suggests correct) / `✗` (issue detected in code) / `?` (cannot determine without execution)
 - **Ejecución**: always starts as `⏳ Pendiente` — NEVER changes without real execution
 
-## Step 5: Display Full Test Table (BEFORE Executing Anything)
+## Step 5: Execute Automatable Tests
 
-**MANDATORY**: Before running any test, display the complete test table to the user
-using the format defined in the Output Format section.
-
-At this stage, all `Ejecución` cells show `⏳ Pendiente`. This gives the user a full
-picture of what is about to be tested.
-
-## Step 6: Execute Automatable Tests
-
-For each `auto` test case, one at a time:
+Run all `auto` test cases silently. Do NOT display intermediate results between tests.
 
 ```
 Go:         go test -run {TestName} ./...  (or go test ./... for suite)
@@ -165,16 +157,27 @@ Result:
   exit code != 0 → ✗ ERROR  (include full stderr in report)
 ```
 
-After each `auto` test execution, redisplay the FULL test table showing:
-- All tests (completed and pending)
-- Updated `Ejecución` column for just-executed test
-- Remaining `⏳ Pendiente` for not-yet-executed tests
-
 If `can_automate` is false: skip this step — all cases remain `⏳ Pendiente usuario`.
 
-## Step 7: Build and Persist QA Report
+## Step 6: Display Full Test Table
 
-Compose the final report using the format below. Then persist:
+After all auto tests have run, display the complete test table ONCE using the Output
+Format below. This is the single moment where the user sees the full picture:
+auto results already filled in, manual items marked ⏳ Pendiente with exact instructions.
+
+## Step 7: Collect Manual Test Results
+
+**HALT** — wait for the user to execute the pending manual tests.
+
+The user may confirm tests one by one ("QA-03 pasa", "QA-05 falla") or all at once
+("todos pasan"). Accept any natural-language form. Update `Ejecución` for each
+reported test accordingly.
+
+Continue waiting until all `⏳ Pendiente` items have a result from the user.
+
+## Step 8: Build and Persist QA Report
+
+Once all tests have a result, compose the final report and persist:
 
 ```
 mem_save(
@@ -189,58 +192,32 @@ mem_save(
 For openspec/hybrid: also write `openspec/changes/{change-name}/qa-report.md`.
 For mode `none`: return report inline only — do not write files or call mem_save.
 
-## Step 8: User Confirmation Gate — MANDATORY BEFORE ARCHIVE
+## Step 9: Archive Gate
 
-**HALT. DO NOT proceed to sdd-archive without completing both confirmations.**
-
-After displaying the final report, show this message exactly:
+When all tests show ✓ PASS (auto or user-confirmed), say exactly:
 
 ```
-─────────────────────────────────────────────────────
-QA COMPLETADO — CONFIRMACIÓN REQUERIDA ANTES DE ARCHIVE
-─────────────────────────────────────────────────────
-
-Tests ejecutados automáticamente : {N_auto}  ✓ PASS: {N_pass}  ✗ ERROR: {N_error}
-Tests pendientes (ejecución manual): {N_manual}
-
-⚠️  Los tests marcados como "⏳ Pendiente" requieren ejecución manual.
-
-¿Confirmas que TODOS los tests han sido ejecutados y han pasado correctamente?
-(Responde SÍ / NO)
+✅ Todos los tests han pasado. ¿Archivamos la feature?
 ```
 
-- If the user responds NO or does not confirm: STOP. Do not advance to archive. Report status `waiting-confirmation`.
-- If the user responds YES: show the second confirmation:
+- If the user confirms: advance to `sdd-archive`.
+- If the user says no or not yet: STOP. Status `waiting-confirmation`.
+- If any test shows ✗ ERROR: do NOT offer archive. Report the failures and stop.
 
-```
-─────────────────────────────────────────────────────
-SEGUNDA CONFIRMACIÓN — AUTORIZACIÓN FINAL PARA ARCHIVE
-─────────────────────────────────────────────────────
-
-Estás a punto de avanzar a la fase de archive, que cerrará este change.
-Esta acción no se puede deshacer fácilmente.
-
-¿Autorizas el archive del change "{change-name}"?
-(Responde AUTORIZO / NO)
-```
-
-- If the user responds NO or anything other than AUTORIZO: STOP. Status `waiting-confirmation`.
-- Only after both confirmations: advance to `sdd-archive`.
-
-## Step 9: Return to Orchestrator
+## Step 10: Return to Orchestrator
 
 Return:
-- `status`: `success` (user confirmed + PASS), `blocked` (no artifacts),
-  `partial` (auto tests errored), `waiting-confirmation` (pending user gate)
-- `executive_summary`: "{N}/{total} automated tests passed. {M} items pending manual
-  verification. Verdict: {PASS | PASS WITH WARNINGS | FAIL}."
-- `next_recommended`: `sdd-archive` (only after both confirmations pass)
+- `status`: `success` (all passed + user confirmed), `blocked` (no artifacts),
+  `partial` (tests errored), `waiting-confirmation` (pending user gate)
+- `executive_summary`: "{N}/{total} automated tests passed. {M} items confirmed by user.
+  Verdict: {PASS | PASS WITH WARNINGS | FAIL}."
+- `next_recommended`: `sdd-archive` (only after user confirms at Step 9)
 - Full qa-report as detailed report
 
 ## Output Format
 
-Display this table at Step 5 (initial) and after each auto execution (Step 6).
-The table MUST always show ALL tests — never hide or collapse completed ones.
+Display this table once at Step 6 (after all auto tests have run).
+The table MUST always show ALL tests — never hide or collapse any row.
 
 ```
 # QA Report: {change-name}
@@ -343,17 +320,17 @@ The table MUST always show ALL tests — never hide or collapse completed ones.
 
 ### Sobre el display de la tabla
 
-- **SIEMPRE** mostrar la tabla completa antes de ejecutar nada (Step 5)
-- **SIEMPRE** mostrar la tabla completa después de cada ejecución de test (Step 6)
-- **NUNCA** ocultar, colapsar, ni omitir tests ya completados — la lista es siempre íntegra
+- La tabla completa se muestra UNA SOLA VEZ al final de la ejecución auto (Step 6)
+- **NUNCA** mostrar resultados parciales ni tabla por cada test ejecutado
+- **NUNCA** ocultar, colapsar, ni omitir tests — la lista es siempre íntegra
 - Cada test SIEMPRE muestra su `Resultado Esperado` — nunca se deja en blanco
 
 ### Sobre el avance a archive
 
-- **PROHIBIDO**: Avanzar a sdd-archive sin las dos confirmaciones del usuario (Step 8)
-- **PROHIBIDO**: Interpretar silencio, respuestas ambiguas, o confirmaciones parciales como autorización
-- Si hay tests en `✗ ERROR` → el veredicto es FAIL → el usuario DEBE reconocer explícitamente antes de autorizar
-- El doble gate es obligatorio incluso si todos los tests son `✓ PASS`
+- **PROHIBIDO**: Avanzar a sdd-archive sin confirmación explícita del usuario (Step 9)
+- **PROHIBIDO**: Interpretar silencio o respuestas ambiguas como confirmación
+- Si hay tests en `✗ ERROR`: NO ofrecer archive — reportar fallos y detenerse
+- La pregunta "¿Archivamos la feature?" se hace solo cuando TODOS los tests son ✓ PASS
 
 ### Otras reglas
 
