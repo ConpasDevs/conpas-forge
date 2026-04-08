@@ -16,7 +16,7 @@ func TestNewModulesModelUsesRealGentleAISkillCount(t *testing.T) {
 		name string
 		want string
 	}{
-		{name: "gentle ai description reflects source skill count", want: "19 skills + CLAUDE.md + output styles"},
+		{name: "gentle ai description reflects source skill count", want: "20 skills + CLAUDE.md + output styles"},
 	}
 
 	for _, tt := range tests {

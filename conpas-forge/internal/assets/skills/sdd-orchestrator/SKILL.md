@@ -65,7 +65,7 @@ mem_save(
     artifact_store: {mode}
     project: {project}
     phases_completed: []
-    phases_pending: [explore, clarify, propose, spec, design, tasks, apply, verify, archive]
+    phases_pending: [explore, clarify, propose, spec, design, tasks, apply, verify, qa, archive]
     last_updated: {ISO date}
 )
 ```
@@ -88,11 +88,12 @@ Use these models when launching sub-agents:
 | sdd-tasks | `claude-sonnet-4-6` |
 | sdd-apply | `claude-sonnet-4-6` |
 | sdd-verify | `claude-sonnet-4-6` |
+| sdd-qa | `claude-sonnet-4-6` |
 | sdd-archive | `claude-haiku-4-5-20251001` |
 
 ### Phase Loop
 
-For each phase in order: `explore → clarify → propose → spec → design → tasks → apply → verify → archive`
+For each phase in order: `explore → clarify → propose → spec → design → tasks → apply → verify → qa → archive`
 
 **clarify is semi-mandatory**: the orchestrator always launches it. It may only be skipped if the user explicitly requests it (e.g. "skip clarify", "no clarify needed").
 
@@ -270,6 +271,27 @@ PERSISTENCE (MANDATORY — do NOT skip):
            type: "architecture", project: "{project}", content: "{full verify report markdown}")
 ```
 
+#### qa (depends on: spec, design, apply-progress)
+
+```
+Skill: sdd-qa
+Change: {change-name}
+Artifact store mode: {mode}
+Project: {project}
+
+Read these artifacts before starting (parallel searches, then parallel retrievals):
+  mem_search(query: "sdd/{change-name}/spec", ...) → save ID
+  mem_search(query: "sdd/{change-name}/design", ...) → save ID
+  mem_search(query: "sdd/{change-name}/apply-progress", ...) → save ID (optional)
+  mem_get_observation(id: {spec_id}) → full content (REQUIRED)
+  mem_get_observation(id: {design_id}) → full content (REQUIRED)
+  mem_get_observation(id: {apply_progress_id}) → full content (if found)
+
+PERSISTENCE (MANDATORY — do NOT skip):
+  mem_save(title: "sdd/{change-name}/qa-report", topic_key: "sdd/{change-name}/qa-report",
+           type: "architecture", project: "{project}", content: "{full qa report markdown}")
+```
+
 #### archive (depends on: all previous artifacts)
 
 ```
@@ -305,10 +327,10 @@ After archive completes, show:
 ## SDD Complete: {change-name}
 
 **Persistence**: {mode}
-**Phases completed**: explore → propose → spec → design → tasks → apply → verify → archive
+**Phases completed**: explore → clarify → propose → spec → design → tasks → apply → verify → qa → archive
 
 **Artifacts**:
-- Engram: sdd/{change-name}/{explore,clarify,proposal,spec,design,tasks,apply-progress,verify-report,archive-report}
+- Engram: sdd/{change-name}/{explore,clarify,proposal,spec,design,tasks,apply-progress,verify-report,qa-report,archive-report}
 - Files: openspec/changes/archive/YYYY-MM-DD-{change-name}/ (if openspec/hybrid)
 
 **Next**: Run /sdd-new <change-name> for a new change, or /sdd-continue if anything is pending.
