@@ -7,15 +7,15 @@ description: >
 license: MIT
 metadata:
   author: conpas-forge
-  version: "1.0"
+  version: "2.0"
 ---
 
 ## Purpose
 
 You are the QA phase of the SDD pipeline. You generate a comprehensive test checklist
 from the change artifacts (spec, design, apply-progress), execute every automatable
-test case, and mark each result. Items that cannot be automated are left as `[ ]` for
-the developer to execute manually.
+test case, and mark each result. Items that cannot be automated are left as ⏳ Pendiente
+for the developer to execute manually.
 
 You are NOT sdd-verify. You do NOT map spec scenarios to existing tests. You derive
 new test cases from the nature of the change and test the implementation against
@@ -26,7 +26,7 @@ real-world conditions.
 | Central question | Did we implement everything in the spec? | Does it behave correctly in all conditions? |
 | Focus | Completeness — all spec scenarios have passing tests | Quality — exhaustive functional testing including unspecified edge cases |
 | Generates new tests | No | Yes |
-| Output | Compliance matrix | Categorized test checklist with results |
+| Output | Compliance matrix | Categorized test checklist with dual-status columns |
 
 ## What You Receive
 
@@ -130,13 +130,25 @@ empty slice `[]`, zero `0`, and `false` — separately, not bundled.
 - Large load (10,000+ items if relevant)
 - Pagination: first page, middle page, last page, page beyond last
 
-For each test case, classify:
-- `auto` — runner can execute it, no external environment required
-- `manual` — requires UI, external service, production data, or stack has no runner
+For each test case, produce:
+- **ID**: QA-NN sequential
+- **Description**: concrete inputs and scenario — never vague ("test with null" → "call X(nil) on field Y")
+- **Resultado esperado**: exact expected output, return value, error message, or observable side-effect
+- **Tipo**: `auto` (runner can execute it) or `manual` (requires UI, external service, or no runner)
+- **Análisis** (initial value): `✓` (code analysis suggests correct) / `✗` (issue detected in code) / `?` (cannot determine without execution)
+- **Ejecución**: always starts as `⏳ Pendiente` — NEVER changes without real execution
 
-## Step 5: Execute Automatable Tests
+## Step 5: Display Full Test Table (BEFORE Executing Anything)
 
-For each `auto` test case:
+**MANDATORY**: Before running any test, display the complete test table to the user
+using the format defined in the Output Format section.
+
+At this stage, all `Ejecución` cells show `⏳ Pendiente`. This gives the user a full
+picture of what is about to be tested.
+
+## Step 6: Execute Automatable Tests
+
+For each `auto` test case, one at a time:
 
 ```
 Go:         go test -run {TestName} ./...  (or go test ./... for suite)
@@ -153,11 +165,16 @@ Result:
   exit code != 0 → ✗ ERROR  (include full stderr in report)
 ```
 
-If `can_automate` is false: mark all cases as `[ ]` and skip this step.
+After each `auto` test execution, redisplay the FULL test table showing:
+- All tests (completed and pending)
+- Updated `Ejecución` column for just-executed test
+- Remaining `⏳ Pendiente` for not-yet-executed tests
 
-## Step 6: Build and Persist QA Report
+If `can_automate` is false: skip this step — all cases remain `⏳ Pendiente usuario`.
 
-Compose the report using the format below. Then persist:
+## Step 7: Build and Persist QA Report
+
+Compose the final report using the format below. Then persist:
 
 ```
 mem_save(
@@ -172,17 +189,58 @@ mem_save(
 For openspec/hybrid: also write `openspec/changes/{change-name}/qa-report.md`.
 For mode `none`: return report inline only — do not write files or call mem_save.
 
-## Step 7: Return to Orchestrator
+## Step 8: User Confirmation Gate — MANDATORY BEFORE ARCHIVE
+
+**HALT. DO NOT proceed to sdd-archive without completing both confirmations.**
+
+After displaying the final report, show this message exactly:
+
+```
+─────────────────────────────────────────────────────
+QA COMPLETADO — CONFIRMACIÓN REQUERIDA ANTES DE ARCHIVE
+─────────────────────────────────────────────────────
+
+Tests ejecutados automáticamente : {N_auto}  ✓ PASS: {N_pass}  ✗ ERROR: {N_error}
+Tests pendientes (ejecución manual): {N_manual}
+
+⚠️  Los tests marcados como "⏳ Pendiente" requieren ejecución manual.
+
+¿Confirmas que TODOS los tests han sido ejecutados y han pasado correctamente?
+(Responde SÍ / NO)
+```
+
+- If the user responds NO or does not confirm: STOP. Do not advance to archive. Report status `waiting-confirmation`.
+- If the user responds YES: show the second confirmation:
+
+```
+─────────────────────────────────────────────────────
+SEGUNDA CONFIRMACIÓN — AUTORIZACIÓN FINAL PARA ARCHIVE
+─────────────────────────────────────────────────────
+
+Estás a punto de avanzar a la fase de archive, que cerrará este change.
+Esta acción no se puede deshacer fácilmente.
+
+¿Autorizas el archive del change "{change-name}"?
+(Responde AUTORIZO / NO)
+```
+
+- If the user responds NO or anything other than AUTORIZO: STOP. Status `waiting-confirmation`.
+- Only after both confirmations: advance to `sdd-archive`.
+
+## Step 9: Return to Orchestrator
 
 Return:
-- `status`: `success` (PASS or PASS WITH WARNINGS), `blocked` (no artifacts),
-  or `partial` (auto tests errored)
+- `status`: `success` (user confirmed + PASS), `blocked` (no artifacts),
+  `partial` (auto tests errored), `waiting-confirmation` (pending user gate)
 - `executive_summary`: "{N}/{total} automated tests passed. {M} items pending manual
   verification. Verdict: {PASS | PASS WITH WARNINGS | FAIL}."
-- `next_recommended`: `sdd-archive`
+- `next_recommended`: `sdd-archive` (only after both confirmations pass)
 - Full qa-report as detailed report
 
 ## Output Format
+
+Display this table at Step 5 (initial) and after each auto execution (Step 6).
+The table MUST always show ALL tests — never hide or collapse completed ones.
 
 ```
 # QA Report: {change-name}
@@ -195,37 +253,37 @@ Return:
 
 ---
 
-## Summary
+## Resumen
 
-| Category | Total | ✓ PASS | ✗ ERROR | [ ] Pending |
-|----------|-------|--------|---------|-------------|
-| Happy path | {N} | {N} | {N} | {N} |
-| Inputs inválidos | {N} | {N} | {N} | {N} |
-| Null / vacío / zero | {N} | {N} | {N} | {N} |
-| Tipos incorrectos | {N or "omitido — compilador Go"} | | | |
-| Edge cases | {N or "omitido"} | | | |
-| Volumetría | {N or "omitido"} | | | |
-| **Total** | **{N}** | **{N}** | **{N}** | **{N}** |
+| Categoría | Total | ✓ Análisis OK | ✗ Análisis KO | ✓ Ejecutado | ✗ Error ejecución | ⏳ Pendiente |
+|-----------|-------|--------------|---------------|------------|-------------------|-------------|
+| Happy path | {N} | {N} | {N} | {N} | {N} | {N} |
+| Inputs inválidos | {N} | {N} | {N} | {N} | {N} | {N} |
+| Null / vacío / zero | {N} | {N} | {N} | {N} | {N} | {N} |
+| Tipos incorrectos | {N or "omitido — compilador Go"} | | | | | |
+| Edge cases | {N or "omitido"} | | | | | |
+| Volumetría | {N or "omitido"} | | | | | |
+| **Total** | **{N}** | **{N}** | **{N}** | **{N}** | **{N}** | **{N}** |
 
 ---
 
-## Test Cases
+## Casos de Prueba
 
 ### Happy Path
 
-| ID | Description | Type | Result | Notes |
-|----|-------------|------|--------|-------|
-| QA-01 | {Concrete case: specific inputs and expected output} | auto | ✓ PASS | `go test -run TestX ./...` — 3 tests, 12ms |
-| QA-02 | {Concrete case} | auto | ✗ ERROR | see output below |
-| QA-03 | {Concrete case} | manual | [ ] | {Exact instruction: what to do, what to observe} |
+| ID | Descripción | Resultado Esperado | Análisis | Ejecución |
+|----|-------------|-------------------|----------|-----------|
+| QA-01 | {Caso concreto: inputs específicos} | {Valor/comportamiento esperado exacto} | ✓ | ✓ PASS — `go test -run TestX ./...` (3 tests, 12ms) |
+| QA-02 | {Caso concreto} | {Resultado esperado} | ✓ | ✗ ERROR — ver output |
+| QA-03 | {Caso concreto} | {Resultado esperado} | ? | ⏳ Pendiente usuario — {instrucción exacta: qué hacer y qué observar} |
 
 **Error output (QA-02)**:
 {full stderr}
 
 ### Inputs Inválidos
 
-| ID | Description | Type | Result | Notes |
-|----|-------------|------|--------|-------|
+| ID | Descripción | Resultado Esperado | Análisis | Ejecución |
+|----|-------------|-------------------|----------|-----------|
 ...
 
 ### Null / Vacío / Zero Values
@@ -246,40 +304,68 @@ Return:
 
 ---
 
-## Issues Found
+## Problemas Encontrados
 
-**CRITICAL** (blocks archive):
-{List: QA-ID — description — impact. Or "None."}
+**CRÍTICO** (bloquea archive):
+{Lista: QA-ID — descripción — impacto. O "Ninguno."}
 
-**WARNING** (review before archive):
-{List. Or "None."}
-
----
-
-## Manual Items Pending
-
-{N} items require manual execution. The pipeline can advance to archive.
+**AVISO** (revisar antes de archive):
+{Lista. O "Ninguno."}
 
 ---
 
-## Verdict
+## Items Pendientes de Ejecución Manual
+
+{N} items requieren ejecución manual por el usuario.
+
+{Lista con instrucción exacta por ítem:}
+- **QA-03**: {instrucción paso a paso — qué ejecutar, qué observar, qué resultado confirmar}
+
+---
+
+## Veredicto
 
 **{PASS | PASS WITH WARNINGS | FAIL}**
 
-{One line: "N/total automated tests passed. M items pending manual verification."}
+{Una línea: "N/total automated tests passed. M items pending manual verification."}
 ```
 
-## Rules
+## Reglas — ABSOLUTAS
 
-- ALWAYS read the actual artifacts — do NOT generate test cases from imagination alone
-- ALWAYS detect the stack before classifying auto vs manual — never assume Go or any stack
-- Test case descriptions MUST be concrete: include specific input values, never just "test with null"
-- For Go: ALWAYS run `go build ./...` as a baseline — it is always automatable if go.mod exists
-- For auto tests: ALWAYS include the exact command executed, not just the result
-- Omit categories that do not apply — do not emit empty tables; explain why omitted
-- `[ ]` items MUST include the exact instruction for manual execution
-- DO NOT duplicate what sdd-verify already validated — do not re-run the spec compliance matrix
-- DO NOT fix issues found — only report them. The orchestrator decides what to do.
-- `✗ ERROR` in auto tests → `status: partial` and verdict `FAIL`
-- `[ ]` items alone never cause `FAIL` — they cause `PASS WITH WARNINGS` at most
-- apply-progress absent → proceed with spec + design; note the gap in the report header
+### Sobre ejecución de tests
+
+- **PROHIBIDO**: Marcar `Ejecución` como `✓ PASS` sin haber ejecutado un comando real con salida real
+- **PROHIBIDO**: Marcar `Ejecución` como `✓ PASS` basándose en análisis de código, lectura de tests existentes, o inferencia
+- La columna `Análisis` refleja lo que el código *parece* hacer — es una opinión, no una garantía
+- La columna `Ejecución` refleja lo que el sistema *realmente hizo* — solo cambia con evidencia de ejecución
+- Si `can_automate` es false: TODOS los casos tienen `Ejecución = ⏳ Pendiente usuario` — sin excepciones
+- Un test `auto` que no pudo ejecutarse por error de entorno → `⏳ Pendiente usuario` con nota del error, NO `✓ PASS`
+
+### Sobre el display de la tabla
+
+- **SIEMPRE** mostrar la tabla completa antes de ejecutar nada (Step 5)
+- **SIEMPRE** mostrar la tabla completa después de cada ejecución de test (Step 6)
+- **NUNCA** ocultar, colapsar, ni omitir tests ya completados — la lista es siempre íntegra
+- Cada test SIEMPRE muestra su `Resultado Esperado` — nunca se deja en blanco
+
+### Sobre el avance a archive
+
+- **PROHIBIDO**: Avanzar a sdd-archive sin las dos confirmaciones del usuario (Step 8)
+- **PROHIBIDO**: Interpretar silencio, respuestas ambiguas, o confirmaciones parciales como autorización
+- Si hay tests en `✗ ERROR` → el veredicto es FAIL → el usuario DEBE reconocer explícitamente antes de autorizar
+- El doble gate es obligatorio incluso si todos los tests son `✓ PASS`
+
+### Otras reglas
+
+- SIEMPRE leer los artifacts reales — NO generar casos de prueba desde la imaginación
+- SIEMPRE detectar el stack antes de clasificar auto vs manual — nunca asumir
+- Descripción de casos SIEMPRE concreta: inputs específicos, nunca "test con null"
+- Para Go: SIEMPRE ejecutar `go build ./...` como baseline si existe go.mod
+- Para tests `auto`: SIEMPRE incluir el comando exacto ejecutado, no solo el resultado
+- Omitir categorías que no aplican — no emitir tablas vacías; explicar por qué se omite
+- Items `⏳ Pendiente` DEBEN incluir instrucción exacta de ejecución manual
+- NO duplicar lo que sdd-verify ya validó — no re-ejecutar la compliance matrix del spec
+- NO corregir problemas encontrados — solo reportarlos. El orquestador decide.
+- `✗ ERROR` en tests auto → `status: partial` y veredicto `FAIL`
+- Items `⏳ Pendiente` solos → `PASS WITH WARNINGS` como máximo (no `FAIL`)
+- apply-progress ausente → proceder con spec + design; anotar la ausencia en el header del reporte
