@@ -15,6 +15,7 @@ type Config struct {
 	Models       map[string]string `yaml:"models"`
 	Modules      ModulesConfig     `yaml:"modules"`
 	Engram       EngramConfig      `yaml:"engram"`
+	BypassMode   bool              `yaml:"bypass_mode,omitempty"`
 	SddStrictTDD string            `yaml:"sdd_strict_tdd,omitempty"` // "enabled" | "disabled" | "" (empty = auto-detect)
 }
 

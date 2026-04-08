@@ -96,6 +96,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Update config with TUI selections before installing
 		m.cfg.Persona = m.persona.Selected()
 		m.cfg.Models = m.models.Assignments()
+		m.cfg.BypassMode = m.modules.BypassMode()
 		return m, m.runPipelineCmd()
 
 	case ProgressMsg:
@@ -206,7 +207,7 @@ func (m Model) runPipelineCmd() tea.Cmd {
 	}
 
 	return func() tea.Msg {
-		modules := installer.BuildModules(selectedIDs)
+		modules := installer.BuildModules(selectedIDs, opts.Config)
 		progress := func(evt installer.ProgressEvent) {
 			if p != nil {
 				p.Send(ProgressMsg{Event: evt})

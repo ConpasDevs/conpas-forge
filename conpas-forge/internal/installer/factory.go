@@ -1,6 +1,8 @@
 package installer
 
-func BuildModules(selectedIDs []string) []Module {
+import "github.com/conpasDEVS/conpas-forge/internal/config"
+
+func BuildModules(selectedIDs []string, cfg *config.Config) []Module {
 	idSet := make(map[string]bool, len(selectedIDs))
 	for _, id := range selectedIDs {
 		idSet[id] = true
@@ -15,6 +17,9 @@ func BuildModules(selectedIDs []string) []Module {
 	}
 	if idSet["zoho-deluge"] {
 		modules = append(modules, NewConpasAIInstaller())
+	}
+	if cfg != nil && cfg.BypassMode {
+		modules = append(modules, NewClaudeSettingsInstaller())
 	}
 	return modules
 }
