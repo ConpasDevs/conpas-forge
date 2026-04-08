@@ -14,7 +14,7 @@ import (
 
 // sddSkills lists the SDD skill names from gentle-ai (excludes zoho-deluge).
 var sddSkills = []string{
-	"sdd-init", "sdd-explore", "sdd-propose", "sdd-spec",
+	"sdd-init", "sdd-clarify", "sdd-explore", "sdd-propose", "sdd-spec",
 	"sdd-design", "sdd-tasks", "sdd-apply", "sdd-verify",
 	"sdd-archive", "sdd-onboard", "sdd-orchestrator", "engram-memory",
 	"branch-pr", "issue-creation", "judgment-day",

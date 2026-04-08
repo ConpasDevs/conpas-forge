@@ -65,7 +65,7 @@ mem_save(
     artifact_store: {mode}
     project: {project}
     phases_completed: []
-    phases_pending: [explore, propose, spec, design, tasks, apply, verify, archive]
+    phases_pending: [explore, clarify, propose, spec, design, tasks, apply, verify, archive]
     last_updated: {ISO date}
 )
 ```
@@ -81,6 +81,7 @@ Use these models when launching sub-agents:
 | Phase | Model |
 |-------|-------|
 | sdd-explore | `claude-sonnet-4-6` |
+| sdd-clarify | `claude-sonnet-4-6` |
 | sdd-propose | `claude-opus-4-6` |
 | sdd-spec | `claude-sonnet-4-6` |
 | sdd-design | `claude-opus-4-6` |
@@ -91,7 +92,9 @@ Use these models when launching sub-agents:
 
 ### Phase Loop
 
-For each phase in order: `explore → propose → spec → design → tasks → apply → verify → archive`
+For each phase in order: `explore → clarify → propose → spec → design → tasks → apply → verify → archive`
+
+**clarify is semi-mandatory**: the orchestrator always launches it. It may only be skipped if the user explicitly requests it (e.g. "skip clarify", "no clarify needed").
 
 **Before launching**: check `phases_completed` in DAG state — skip phases already done.
 
@@ -126,7 +129,27 @@ After completing your work, call:
   )
 ```
 
-#### propose (depends on: explore)
+#### clarify (depends on: explore)
+
+```
+Skill: sdd-clarify
+Change: {change-name}
+Artifact store mode: {mode}
+Project: {project}
+
+Read this artifact before starting:
+  mem_search(query: "sdd/{change-name}/explore", project: "{project}") → get ID
+  mem_get_observation(id) → full content (REQUIRED — do NOT use preview)
+
+MANDATORY: interact with the user at least once before producing output.
+If no open questions, present a brief summary and ask for confirmation before continuing.
+
+PERSISTENCE (MANDATORY — do NOT skip):
+  mem_save(title: "sdd/{change-name}/clarify", topic_key: "sdd/{change-name}/clarify",
+           type: "architecture", project: "{project}", content: "{full clarification summary markdown}")
+```
+
+#### propose (depends on: explore, clarify)
 
 ```
 Skill: sdd-propose
@@ -134,9 +157,11 @@ Change: {change-name}
 Artifact store mode: {mode}
 Project: {project}
 
-Read these artifacts before starting:
-  mem_search(query: "sdd/{change-name}/explore", project: "{project}") → get ID
-  mem_get_observation(id) → full content (REQUIRED — do NOT use preview)
+Read these artifacts before starting (parallel searches, then parallel retrievals):
+  mem_search(query: "sdd/{change-name}/explore", project: "{project}") → save ID
+  mem_search(query: "sdd/{change-name}/clarify", project: "{project}") → save ID
+  mem_get_observation(id: {explore_id}) → full content (REQUIRED — do NOT use preview)
+  mem_get_observation(id: {clarify_id}) → full content (REQUIRED — do NOT use preview)
 
 PERSISTENCE (MANDATORY — do NOT skip):
   mem_save(title: "sdd/{change-name}/proposal", topic_key: "sdd/{change-name}/proposal",
@@ -283,7 +308,7 @@ After archive completes, show:
 **Phases completed**: explore → propose → spec → design → tasks → apply → verify → archive
 
 **Artifacts**:
-- Engram: sdd/{change-name}/{explore,proposal,spec,design,tasks,apply-progress,verify-report,archive-report}
+- Engram: sdd/{change-name}/{explore,clarify,proposal,spec,design,tasks,apply-progress,verify-report,archive-report}
 - Files: openspec/changes/archive/YYYY-MM-DD-{change-name}/ (if openspec/hybrid)
 
 **Next**: Run /sdd-new <change-name> for a new change, or /sdd-continue if anything is pending.
