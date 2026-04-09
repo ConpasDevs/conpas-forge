@@ -66,6 +66,7 @@ mem_save(
     project: {project}
     phases_completed: []
     phases_pending: [explore, clarify, propose, spec, design, tasks, apply, verify, qa, archive]
+    qa_user_confirmed: false
     last_updated: {ISO date}
 )
 ```
@@ -97,6 +98,13 @@ For each phase in order: `explore → clarify → propose → spec → design �
 
 **clarify is semi-mandatory**: the orchestrator always launches it. It may only be skipped if the user explicitly requests it (e.g. "skip clarify", "no clarify needed").
 
+**qa is HARD-MANDATORY**: it CANNOT be skipped under any circumstance.
+- `/sdd-ff` does NOT auto-skip QA — it still requires explicit user confirmation at the archive gate.
+- If the user explicitly asks to skip QA (e.g. "skip qa", "go straight to archive", "no qa needed"), refuse and explain: "La fase QA saltarse no puede. La confirmación del usuario requerida es antes de archivar."
+- `sdd-archive` MUST NOT launch unless DAG state contains `qa_user_confirmed: true`.
+- This flag is set ONLY when sdd-qa returns `status: success` (which requires the user to have confirmed at its Step 9 archive gate).
+- There is NO override, NO flag, NO command that bypasses this rule.
+
 **Before launching**: check `phases_completed` in DAG state — skip phases already done.
 
 **`/sdd-new` behavior**: after each phase completes, ask:
@@ -105,7 +113,7 @@ Phase {name} complete. Proceed to {next-phase}? [Y/n]
 ```
 If user says no: save DAG state with current phase as last completed. Stop. User can resume with `/sdd-continue`.
 
-**`/sdd-ff` behavior**: auto-confirm all phase transitions. Run to completion without stopping.
+**`/sdd-ff` behavior**: auto-confirm all phase transitions EXCEPT the QA archive gate. Run to completion without stopping, but HALT at QA until the user confirms all tests passed.
 
 **After each phase**: update DAG state — move phase from `phases_pending` to `phases_completed`.
 
@@ -292,7 +300,13 @@ PERSISTENCE (MANDATORY — do NOT skip):
            type: "architecture", project: "{project}", content: "{full qa report markdown}")
 ```
 
-#### archive (depends on: all previous artifacts)
+**After qa returns**: if `status: success`, update DAG state with `qa_user_confirmed: true` before proceeding.
+If `status` is anything other than `success`: STOP. Do NOT launch archive. Surface the blocker to the user.
+
+#### archive (depends on: all previous artifacts, qa_user_confirmed: true)
+
+**PREREQUISITE**: Before launching this phase, verify DAG state has `qa_user_confirmed: true`.
+If it does not: REFUSE to launch archive. Tell the user: "La fase QA completarse debe primero. `/sdd-continue {change-name}` ejecutar para reanudar desde QA."
 
 ```
 Skill: sdd-archive
@@ -343,6 +357,11 @@ After archive completes, show:
 - ALWAYS read DAG state before launching any phase (prevents re-running completed work)
 - If a phase sub-agent returns `status: blocked`, STOP and surface the blocker to the user
 - If a phase sub-agent returns `status: partial`, decide with the user whether to continue or re-run
-- `/sdd-ff` still shows phase completion summaries — it only skips the confirmation prompts
+- `/sdd-ff` still shows phase completion summaries — it only skips the confirmation prompts (except QA gate — see below)
 - For `none` mode: warn the user that artifacts will be lost when the conversation ends
 - The `state` artifact is ALWAYS saved to Engram regardless of mode (it's infrastructure, not an SDD artifact)
+- **QA IS HARD-MANDATORY — NO EXCEPTIONS**:
+  - `sdd-qa` MUST run before `sdd-archive` in every pipeline, including `/sdd-ff`
+  - `sdd-archive` MUST NOT launch unless DAG state has `qa_user_confirmed: true`
+  - No user instruction, no flag, no command overrides this rule
+  - If asked to skip QA or go straight to archive, refuse with: "La fase QA saltarse no puede. La confirmación del usuario requerida es antes de archivar."

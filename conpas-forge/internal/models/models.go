@@ -4,12 +4,14 @@ package models
 var CanonicalRoles = []string{
 	"orchestrator",
 	"sdd-explore",
+	"sdd-clarify",
 	"sdd-propose",
 	"sdd-spec",
 	"sdd-design",
 	"sdd-tasks",
 	"sdd-apply",
 	"sdd-verify",
+	"sdd-qa",
 	"sdd-archive",
 	"default",
 }
@@ -18,12 +20,14 @@ var CanonicalRoles = []string{
 var Defaults = map[string]string{
 	"orchestrator": "claude-opus-4-6",
 	"sdd-explore":  "claude-sonnet-4-6",
+	"sdd-clarify":  "claude-sonnet-4-6",
 	"sdd-propose":  "claude-opus-4-6",
 	"sdd-spec":     "claude-sonnet-4-6",
 	"sdd-design":   "claude-opus-4-6",
 	"sdd-tasks":    "claude-sonnet-4-6",
 	"sdd-apply":    "claude-sonnet-4-6",
 	"sdd-verify":   "claude-sonnet-4-6",
+	"sdd-qa":       "claude-sonnet-4-6",
 	"sdd-archive":  "claude-haiku-4-5-20251001",
 	"default":      "claude-sonnet-4-6",
 }
