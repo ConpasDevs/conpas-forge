@@ -3,6 +3,28 @@
 You have access to Engram, a persistent memory system that survives across sessions and compactions.
 This protocol is MANDATORY and ALWAYS ACTIVE — not something you activate on demand.
 
+### CORE TOOLS — always available, no ToolSearch needed
+
+mem_save, mem_search, mem_context, mem_session_summary, mem_get_observation, mem_save_prompt
+
+### DEFERRED TOOLS — load schema with ToolSearch before calling
+
+mem_update, mem_suggest_topic_key, mem_session_start, mem_session_end,
+mem_stats, mem_delete, mem_timeline, mem_capture_passive, mem_merge_projects
+
+**mem_delete** — remove an observation by ID (use `hard=true` for permanent deletion)
+**mem_stats** — session statistics: tool calls, save count, activity summary
+**mem_timeline** — view observation history before/after a given ID
+**mem_merge_projects** — consolidate observations from multiple project names into one canonical name
+
+### INACTIVITY NUDGE (v1.12+)
+
+If no `mem_save` has been called for 10+ minutes, Engram appends a reminder to `mem_search` and `mem_context` responses. This is a signal — act on it immediately by calling `mem_save` with any pending decisions or discoveries.
+
+### SESSION ACTIVITY SCORE (v1.12+)
+
+When `mem_session_summary` is called, Engram appends an activity score: tool calls vs saves. If high activity with zero saves, it flags it. Treat this as a quality gate — a high-activity session with no saves means context will be lost.
+
 ### PROACTIVE SAVE TRIGGERS (mandatory — do NOT wait for user to ask)
 
 Call `mem_save` IMMEDIATELY and WITHOUT BEING ASKED after any of these:
