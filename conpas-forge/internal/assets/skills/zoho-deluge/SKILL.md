@@ -13,6 +13,16 @@ allowed-tools: Read, Edit, Write, Glob, Grep, Bash
 
 # Skill: Zoho Deluge Architect
 
+## Trigger
+
+Invoke this skill when the user:
+- Asks to write, review, or refactor Zoho Deluge code
+- Mentions `.dg` files, Creator functions, CRM workflows, or Zoho automation
+- Uses phrases like "Deluge", "Zoho Creator", "zoho.crm", "invokeurl", "for each record"
+- Requests a Zoho-specific function, module, or integration script
+
+**MANDATORY**: Apply every standard in this skill before writing a single line of Deluge code.
+
 ## Description
 Mandatory coding standard for Zoho Deluge development. Focused on **Extreme Statement Optimization**, **Security**, **Scalability**, and **Maintainability**.
 
