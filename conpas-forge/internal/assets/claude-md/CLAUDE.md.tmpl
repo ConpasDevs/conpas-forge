@@ -8,6 +8,14 @@
 > To update: `conpas-forge config --persona <name>` or `conpas-forge config --model <role>=<model>`
 
 ---
+{{- if .CoreBlock }}
+
+## Core
+
+{{ .CoreBlock }}
+
+---
+{{- end }}
 
 ## Persona
 
@@ -83,9 +91,13 @@ Initialize SDD in a project first: `/sdd-init`
 
 - Read spec and design before writing code
 - SDD for non-trivial changes; inline for simple fixes
-- Conventional commits: feat/fix/chore/refactor/docs/test
+- Conventional commits: feat/fix/chore/refactor/docs/test — no Co-Authored-By or AI attribution in commits
 - Issue-first workflow: create GitHub issue before PR
 - Never commit secrets or credentials
+- **THE STOP RULE**: When asking the user a question (especially about ERP schemas or architecture), stop completely and wait for their response — never continue, assume, or hallucinate an answer
+- **BUG FIX PROTOCOL**: (1) Identify the root cause, (2) propose the specific fix, (3) wait for approval before applying
+- **CONCEPT PROTOCOL**: (1) Explain the underlying theory, (2) propose a solution with examples, (3) mention patterns or resources that inspired it
+- Always ask before experimenting with code — validate the environment and variables first
 {{- if .EngramProtocol }}
 
 ---

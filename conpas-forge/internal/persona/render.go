@@ -14,6 +14,7 @@ import (
 type CLAUDEMDData struct {
 	PersonaName    string
 	PersonaBlock   string
+	CoreBlock      string // content from personas/core.md — shared across all personas
 	ModelRows      []ModelRow
 	Version        string
 	GeneratedAt    string
@@ -41,6 +42,11 @@ func BuildCLAUDEMDData(cfg *config.Config, ver string) (*CLAUDEMDData, error) {
 		rows = append(rows, ModelRow{Role: role, Model: model})
 	}
 
+	var coreBlock string
+	if raw, err := assets.FS.ReadFile("personas/core.md"); err == nil {
+		coreBlock = string(raw)
+	} // silently ignore read failure — CoreBlock stays ""
+
 	var engramProtocol string
 	if raw, err := assets.FS.ReadFile("skills/engram-memory/SKILL.md"); err == nil {
 		engramProtocol = string(raw)
@@ -49,6 +55,7 @@ func BuildCLAUDEMDData(cfg *config.Config, ver string) (*CLAUDEMDData, error) {
 	return &CLAUDEMDData{
 		PersonaName:    cfg.Persona,
 		PersonaBlock:   string(content),
+		CoreBlock:      coreBlock,
 		ModelRows:      rows,
 		Version:        ver,
 		GeneratedAt:    time.Now().Format(time.RFC3339),

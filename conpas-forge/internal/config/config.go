@@ -62,7 +62,7 @@ func Load() (*Config, error) {
 
 	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return nil, fmt.Errorf("parse config: %w", err)
+		return nil, fmt.Errorf("config.yaml is corrupted: %w — delete %s to reset to defaults", err, ConfigPath())
 	}
 
 	if cfg.Version != 1 {
@@ -82,6 +82,17 @@ func Load() (*Config, error) {
 }
 
 func Save(cfg *Config) error {
+	// Refresh rollback backup before each write.
+	if _, err := os.Stat(ConfigPath()); err == nil {
+		existing, err := os.ReadFile(ConfigPath())
+		if err != nil {
+			return fmt.Errorf("read config for backup: %w", err)
+		}
+		if err := AtomicWrite(ConfigBak(), existing, 0644); err != nil {
+			return fmt.Errorf("refresh config backup: %w", err)
+		}
+	}
+
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
 		return fmt.Errorf("marshal config: %w", err)

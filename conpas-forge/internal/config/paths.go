@@ -30,6 +30,7 @@ func OverrideHomeDir(dir string) {
 
 func ForgeDir() string   { return filepath.Join(HomeDir(), ".conpas-forge") }
 func ConfigPath() string { return filepath.Join(ForgeDir(), "config.yaml") }
+func ConfigBak() string  { return filepath.Join(ForgeDir(), "config.yaml.bak") }
 func BinDir() string     { return filepath.Join(ForgeDir(), "bin") }
 
 func EngramBinary() string {
