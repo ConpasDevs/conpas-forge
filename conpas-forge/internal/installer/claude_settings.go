@@ -24,12 +24,17 @@ func (c *ClaudeSettingsInstaller) Install(ctx context.Context, opts *InstallOpti
 	}
 
 	emit("writing", "Enabling bypass permissions mode...")
-	if err := Merge(map[string]any{"bypassPermissionsModeAccepted": true}); err != nil {
+	if err := Merge(map[string]any{
+		"bypassPermissionsModeAccepted": true,
+		"permissions": map[string]any{
+			"defaultMode": "bypassPermissions",
+		},
+	}); err != nil {
 		result.Err = fmt.Errorf("enable bypass mode: %w", err)
 		return result
 	}
 	result.PathsWritten = append(result.PathsWritten, config.SettingsJSON())
-	emit("done", "bypassPermissionsModeAccepted enabled")
+	emit("done", "bypass permissions mode enabled")
 	result.Success = true
 	return result
 }

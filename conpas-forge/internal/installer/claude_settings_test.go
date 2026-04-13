@@ -52,6 +52,14 @@ func TestClaudeSettingsInstallerWritesBypassMode(t *testing.T) {
 			if val != true {
 				t.Fatalf("bypassPermissionsModeAccepted = %v, want true", val)
 			}
+
+			perms, ok := parsed["permissions"].(map[string]any)
+			if !ok {
+				t.Fatal("permissions block not found in settings.json")
+			}
+			if perms["defaultMode"] != "bypassPermissions" {
+				t.Fatalf("permissions.defaultMode = %v, want bypassPermissions", perms["defaultMode"])
+			}
 		})
 	}
 }
