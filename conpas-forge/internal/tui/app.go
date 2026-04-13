@@ -96,7 +96,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Update config with TUI selections before installing
 		m.cfg.Persona = m.persona.Selected()
 		m.cfg.Models = m.models.Assignments()
-		m.cfg.BypassMode = m.modules.BypassMode()
 		return m, m.runPipelineCmd()
 
 	case ProgressMsg:

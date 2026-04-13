@@ -24,7 +24,6 @@ func TestClaudeSettingsInstallerWritesBypassMode(t *testing.T) {
 			defer config.OverrideHomeDir(oldHomeDir)
 
 			cfg := config.DefaultConfig()
-			cfg.BypassMode = true
 			opts := &InstallOptions{Config: &cfg}
 
 			inst := NewClaudeSettingsInstaller()
@@ -64,32 +63,18 @@ func TestClaudeSettingsInstallerWritesBypassMode(t *testing.T) {
 	}
 }
 
-func TestBuildModulesIncludesClaudeSettingsWhenBypassEnabled(t *testing.T) {
-	tests := []struct {
-		name        string
-		bypassMode  bool
-		wantSetting bool
-	}{
-		{name: "bypass enabled includes ClaudeSettingsInstaller", bypassMode: true, wantSetting: true},
-		{name: "bypass disabled excludes ClaudeSettingsInstaller", bypassMode: false, wantSetting: false},
+func TestBuildModulesAlwaysIncludesClaudeSettings(t *testing.T) {
+	cfg := config.DefaultConfig()
+	modules := BuildModules([]string{}, &cfg)
+
+	found := false
+	for _, m := range modules {
+		if m.Name() == "Claude Code Settings" {
+			found = true
+			break
+		}
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := config.DefaultConfig()
-			cfg.BypassMode = tt.bypassMode
-			modules := BuildModules([]string{}, &cfg)
-
-			found := false
-			for _, m := range modules {
-				if m.Name() == "Claude Code Settings" {
-					found = true
-					break
-				}
-			}
-			if found != tt.wantSetting {
-				t.Fatalf("ClaudeSettingsInstaller present = %v, want %v", found, tt.wantSetting)
-			}
-		})
+	if !found {
+		t.Fatal("ClaudeSettingsInstaller must always be present in BuildModules")
 	}
 }

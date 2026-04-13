@@ -18,8 +18,6 @@ func BuildModules(selectedIDs []string, cfg *config.Config) []Module {
 	if idSet["zoho-deluge"] {
 		modules = append(modules, NewConpasAIInstaller())
 	}
-	if cfg != nil && cfg.BypassMode {
-		modules = append(modules, NewClaudeSettingsInstaller())
-	}
+	modules = append(modules, NewClaudeSettingsInstaller())
 	return modules
 }

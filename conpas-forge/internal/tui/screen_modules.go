@@ -25,13 +25,12 @@ type ModuleChoice struct {
 }
 
 type ModulesModel struct {
-	choices    []ModuleChoice
-	cursor     int
-	errMsg     string
-	bypassMode bool
+	choices []ModuleChoice
+	cursor  int
+	errMsg  string
 }
 
-// moduleCount is the number of real module choices (excludes "all" and bypass toggle).
+// moduleCount is the number of real module choices (excludes "all").
 const moduleCount = 3
 
 func NewModulesModel(cfg *config.Config) ModulesModel {
@@ -42,7 +41,6 @@ func NewModulesModel(cfg *config.Config) ModulesModel {
 			{ID: "zoho-deluge", Label: "Zoho Deluge Skill", Description: "Conpas AI coding standard for Zoho Deluge", Checked: cfg.Modules.ZohoDeluge.Installed},
 			{ID: "all", Label: "All modules", Description: "Select all three", Checked: false},
 		},
-		bypassMode: cfg.BypassMode,
 	}
 }
 
@@ -57,17 +55,12 @@ func (m ModulesModel) Update(msg tea.Msg) (ModulesModel, tea.Cmd) {
 				m.cursor--
 			}
 		case "down", "j":
-			// total rows = module choices + bypass toggle
-			totalRows := len(m.choices) + 1
-			if m.cursor < totalRows-1 {
+			if m.cursor < len(m.choices)-1 {
 				m.cursor++
 			}
 		case " ":
 			m.errMsg = ""
-			bypassRow := len(m.choices) // row index of the bypass toggle
-			if m.cursor == bypassRow {
-				m.bypassMode = !m.bypassMode
-			} else if m.choices[m.cursor].ID == "all" {
+			if m.choices[m.cursor].ID == "all" {
 				// Toggle all individual modules
 				allChecked := true
 				for _, c := range m.choices[:moduleCount] {
@@ -110,19 +103,6 @@ func (m ModulesModel) View() string {
 		sb.WriteString(fmt.Sprintf("%s%s %s — %s\n", cursor, check, c.Label, c.Description))
 	}
 
-	// Bypass mode toggle (separate section)
-	bypassRow := len(m.choices)
-	sb.WriteString("\n" + lipgloss.NewStyle().Faint(true).Render("Claude Code settings:") + "\n")
-	cursor := "  "
-	if m.cursor == bypassRow {
-		cursor = cursorStyle.Render("▶ ")
-	}
-	check := "[ ]"
-	if m.bypassMode {
-		check = checkStyle.Render("[✓]")
-	}
-	sb.WriteString(fmt.Sprintf("%s%s Bypass permissions — Enable bypassPermissionsModeAccepted\n", cursor, check))
-
 	if m.errMsg != "" {
 		sb.WriteString("\n" + errorStyle.Render(m.errMsg) + "\n")
 	}
@@ -139,8 +119,6 @@ func (m ModulesModel) Selected() []string {
 	}
 	return ids
 }
-
-func (m ModulesModel) BypassMode() bool { return m.bypassMode }
 
 func (m ModulesModel) Validate() error {
 	if len(m.Selected()) == 0 {
