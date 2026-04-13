@@ -17,7 +17,7 @@ allowed-tools: Read, Edit, Write, Glob, Grep, Bash
 
 Invoke this skill when the user:
 - Asks to write, review, or refactor Zoho Deluge code
-- Mentions `.dg` files, Creator functions, CRM workflows, or Zoho automation
+- Mentions `.dg` or `.ds` files, Creator functions, CRM workflows, or Zoho automation
 - Uses phrases like "Deluge", "Zoho Creator", "zoho.crm", "invokeurl", "for each record"
 - Requests a Zoho-specific function, module, or integration script
 
