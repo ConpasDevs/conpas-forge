@@ -183,17 +183,60 @@ This is the existing behavior, unchanged.
 
 **Before launching**: check `phases_completed` in DAG state — skip phases already done.
 
-**`/sdd-new` behavior**: after each phase completes, ask:
-```
-Phase {name} complete. Proceed to {next-phase}? [Y/n]
-```
-If user says no: save DAG state with current phase as last completed. Stop. User can resume with `/sdd-continue`.
+**`/sdd-new` and `/sdd-continue` behavior** (interactive mode): after each phase completes, render the Format B summary returned by the sub-agent (see `## Format B: Result Contract`), then present the 3-way gate:
 
-**`/sdd-ff` behavior**: auto-confirm all phase transitions EXCEPT the QA archive gate. Run to completion without stopping, but HALT at QA until the user confirms all tests passed.
+```
+¿Seguimos con {next-phase}, ajustás algo, o paramos? [yes / no / <feedback libre>]
+```
+
+Response handling:
+- `yes` / `continuar` → proceed to next phase, update DAG state.
+- `no` / `parar` → save DAG state with current phase as last completed. Stop. User can resume with `/sdd-continue`.
+- any other text → treat as **free feedback**: enter re-run loop (see `##### Re-Run Loop` below).
+
+##### Re-Run Loop
+
+When the user provides free feedback at the gate, the orchestrator MUST re-run the CURRENT phase:
+
+1. Relaunch the SAME sub-agent with the original prompt **plus** the following block appended verbatim:
+   ```
+   RE-RUN REQUEST. Previous output was rejected with feedback: "{user_feedback}".
+   Update your artifacts and return a new Format B summary.
+   ```
+2. Receive the new Format B summary from the sub-agent.
+3. Render it using the display template in `## Format B: Result Contract`.
+4. Re-present the 3-way gate. No limit on iterations.
+
+**`/sdd-ff` behavior**: auto-confirm all phase transitions EXCEPT the QA archive gate. Run to completion without stopping. After each phase, render the Format B summary (display-only, no user prompt) before auto-confirming and proceeding. HALT at QA until the user confirms all tests passed.
 
 **After each phase**: update DAG state — move phase from `phases_pending` to `phases_completed`.
 
 ### Launch Prompt Templates
+
+> **MANDATORY**: Append the `#### Universal Launch Addendum` block to EVERY phase launch prompt below, with no exceptions.
+
+#### Universal Launch Addendum
+
+Append this block verbatim at the end of every phase launch prompt:
+
+```
+RETURN FORMAT CONTRACT (MANDATORY):
+You MUST conclude your return message with a Format B Summary using this exact structure:
+
+status: success | failure | blocked | partial
+executive_summary:
+  - {key decision or finding 1}
+  - {key decision or finding 2}
+  - {key decision or finding 3}
+artifacts:
+  - type: {artifact-type}  location: {topic_key or file path}
+files_impacted:
+  - {file path} — {new | modified | deleted}
+next_recommended: {next phase name}
+risks:
+  - {risk item}  # 0–3 items
+skill_resolution: injected
+```
 
 #### explore (no dependencies)
 
@@ -482,6 +525,46 @@ For small path, use this summary instead:
 **Summary**: {what was done}
 
 Inline summary saved to engram: sdd/{change-name}/inline-summary
+```
+
+## Format B: Result Contract
+
+All phase sub-agents MUST return their results in Format B. The orchestrator expects this envelope before rendering a summary or advancing the pipeline.
+
+### Required Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | string | `success`, `failure`, `blocked`, or `partial` |
+| `executive_summary` | list (3–5 items) | Key decisions or findings from this phase |
+| `artifacts` | list | Each entry: `type` + `location` (topic_key or file path) |
+| `files_impacted` | list | Each entry: file path + action (`new` / `modified` / `deleted`) |
+| `next_recommended` | string | Recommended next phase |
+| `risks` | list (0–3 items) | Risk items identified during this phase |
+| `skill_resolution` | string | Must be `"injected"` |
+
+### Display Template
+
+When the orchestrator receives a Format B envelope, render it to the user with this template before any gate prompt:
+
+```markdown
+## Phase Complete: {phase-name}
+
+**Status**: {status}
+
+**Key Findings / Decisions**:
+{executive_summary bullet points}
+
+**Artifacts Generated**:
+{artifacts list}
+
+**Files Impacted**:
+{files_impacted list}
+
+**Risks**:
+{risks list — "None" if empty}
+
+**Next Recommended Phase**: {next_recommended}
 ```
 
 ## Rules
