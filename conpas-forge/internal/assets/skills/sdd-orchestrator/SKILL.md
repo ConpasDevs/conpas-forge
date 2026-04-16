@@ -30,6 +30,25 @@ Detect the current project name:
 2. If no git remote, use the current directory name
 3. Normalize to lowercase (e.g., `conpas-forge`)
 
+## Step 1.5: Classify Change Size
+
+Before selecting persistence mode, classify the change size from the user's description. Classification determines which pipeline runs.
+
+| Size | Heuristics | Examples |
+|------|-----------|---------|
+| **small** | Estimated <50 lines, single file, atomic edit | "fix typo", "rename field", "add env var" |
+| **medium** | Estimated 50–300 lines, multi-file, single module | "add validation", "refactor middleware" |
+| **large** | Estimated >300 lines, multi-module, cross-cutting | "add RBAC", "migrate DB layer" |
+
+After inferring size, announce:
+> "Classified as {small|medium|large}. Correct? [Y/n]"
+
+If the user overrides, adopt their value immediately without challenge.
+
+Store the result as `pipeline_type` in DAG state (medium and large only).
+
+**Small path shortcut**: if classified as `small`, skip Steps 2–4 entirely. Proceed to inline execution — see Step 4, Small Path below.
+
 ## Step 2: Select Persistence Mode (`/sdd-new` and `/sdd-ff` only)
 
 **Auto-select — do NOT ask the user unless Engram is unavailable.**
@@ -64,12 +83,20 @@ mem_save(
     change: {change-name}
     artifact_store: {mode}
     project: {project}
+    pipeline_type: {pipeline_type}  # defaults to "large" if absent (backwards compat)
     phases_completed: []
-    phases_pending: [explore, clarify, propose, spec, design, tasks, apply, verify, qa, archive]
+    phases_pending: [...]  # initialized per pipeline_type — see Step 4
     qa_user_confirmed: false
     last_updated: {ISO date}
 )
 ```
+
+**Pipeline-specific initialization**:
+- **medium**: `phases_pending: [propose, spec, tasks, apply, verify, qa, archive]`
+- **large**: `phases_pending: [explore, clarify, propose, spec, design, tasks, apply, verify, qa, archive]`
+- **small**: no DAG state (inline execution — see Step 4, Small Path)
+
+> **Backwards compatibility**: if `pipeline_type` is absent in a recovered DAG state, default to `large`.
 
 For openspec/hybrid mode, also write `openspec/changes/{change-name}/state.yaml`.
 
@@ -94,11 +121,60 @@ Use these models when launching sub-agents:
 
 ### Phase Loop
 
+Route execution based on `pipeline_type` from DAG state:
+
+#### Small Path (inline)
+
+The orchestrator executes the change directly — no sub-agents, no DAG state, no phase loop.
+
+1. Read the relevant file(s) (1–3 max)
+2. Write the change inline in the main conversation
+3. Apply delegation heuristics (see "Delegation Heuristics" section below) — if any trigger fires, escalate to medium
+4. On completion, save a lightweight engram summary:
+   ```
+   mem_save(
+     title: "sdd/{change-name}/inline-summary",
+     topic_key: "sdd/{change-name}/inline-summary",
+     type: "architecture",
+     project: "{project}",
+     content: "Change: {change-name}\nFiles: {list}\nLines: ~{estimate}\nWhat: {summary}"
+   )
+   ```
+5. Remind the user: "Inline change complete. Manual verification recommended — no QA pipeline ran."
+
+**Scale Creep Detection**: While executing inline, monitor scope continuously. If:
+- The change requires touching **2 or more files**, OR
+- The estimated edit grows beyond **~50 lines**
+
+…PAUSE immediately and surface:
+> "Este cambio supera el scope small (2+ archivos / ~50 líneas). ¿Escalamos a pipeline medium o large? [medium/large/continue inline]"
+
+Wait for user response:
+- If user says `continue inline` → resume without escalation. No scale creep check again.
+- If user says `medium` or `large` → stop inline work, initialize DAG state with the chosen `pipeline_type`, start from the first phase of that pipeline.
+
+#### Medium Path (7 phases)
+
+For each phase in order: `propose → spec → tasks → apply → verify → qa → archive`
+
+All existing phase behaviors apply. The following phases are NOT available in medium: `explore`, `clarify`, `design`.
+
+For `/sdd-new`: pause for confirmation after each phase.
+For `/sdd-ff`: auto-confirm all transitions except the QA archive gate.
+
+#### Large Path (10 phases — current default)
+
 For each phase in order: `explore → clarify → propose → spec → design → tasks → apply → verify → qa → archive`
 
-**clarify is semi-mandatory**: the orchestrator always launches it. It may only be skipped if the user explicitly requests it (e.g. "skip clarify", "no clarify needed").
+This is the existing behavior, unchanged.
 
-**qa is HARD-MANDATORY**: it CANNOT be skipped under any circumstance.
+**clarify is semi-mandatory (large path only)**: the orchestrator always launches it. It may only be skipped if the user explicitly requests it (e.g. "skip clarify", "no clarify needed").
+
+---
+
+### QA Hard-Mandatory Rule (medium and large)
+
+**qa is HARD-MANDATORY**: it CANNOT be skipped under any circumstance in either the medium or large pipeline.
 - `/sdd-ff` does NOT auto-skip QA — it still requires explicit user confirmation at the archive gate.
 - If the user explicitly asks to skip QA (e.g. "skip qa", "go straight to archive", "no qa needed"), refuse and explain: "La fase QA saltarse no puede. La confirmación del usuario requerida es antes de archivar."
 - `sdd-archive` MUST NOT launch unless DAG state contains `qa_user_confirmed: true`.
@@ -227,7 +303,7 @@ Read these artifacts before starting (parallel searches, then parallel retrieval
   mem_search(query: "sdd/{change-name}/design", ...) → save ID
   mem_get_observation(id: {proposal_id}) → full content (REQUIRED)
   mem_get_observation(id: {spec_id}) → full content (REQUIRED)
-  mem_get_observation(id: {design_id}) → full content (REQUIRED)
+  mem_get_observation(id: {design_id}) → full content (REQUIRED for large pipeline; OPTIONAL — may not exist for medium pipeline)
 
 PERSISTENCE (MANDATORY — do NOT skip):
   mem_save(title: "sdd/{change-name}/tasks", topic_key: "sdd/{change-name}/tasks",
@@ -250,7 +326,7 @@ Read these artifacts before starting (parallel searches, then parallel retrieval
   mem_search(query: "sdd/{change-name}/tasks", ...) → save ID (keep this ID for updates)
   mem_get_observation(id: {proposal_id}) → full content (REQUIRED)
   mem_get_observation(id: {spec_id}) → full content (REQUIRED)
-  mem_get_observation(id: {design_id}) → full content (REQUIRED)
+  mem_get_observation(id: {design_id}) → full content (REQUIRED for large pipeline; OPTIONAL — may not exist for medium pipeline)
   mem_get_observation(id: {tasks_id}) → full content (REQUIRED)
 
 PERSISTENCE (MANDATORY — do NOT skip):
@@ -269,10 +345,10 @@ Project: {project}
 
 Read these artifacts before starting (parallel searches, then parallel retrievals):
   mem_search(query: "sdd/{change-name}/spec", ...) → save ID
-  mem_search(query: "sdd/{change-name}/design", ...) → save ID
+  mem_search(query: "sdd/{change-name}/design", ...) → save ID (OPTIONAL — may not exist for medium pipeline)
   mem_search(query: "sdd/{change-name}/tasks", ...) → save ID
   mem_search(query: "sdd/{change-name}/apply-progress", ...) → save ID
-  [run all mem_get_observation calls in parallel]
+  [run all mem_get_observation calls in parallel — skip design gracefully if not found]
 
 PERSISTENCE (MANDATORY — do NOT skip):
   mem_save(title: "sdd/{change-name}/verify-report", topic_key: "sdd/{change-name}/verify-report",
@@ -294,6 +370,32 @@ Read these artifacts before starting (parallel searches, then parallel retrieval
   mem_get_observation(id: {spec_id}) → full content (REQUIRED)
   mem_get_observation(id: {design_id}) → full content (REQUIRED)
   mem_get_observation(id: {apply_progress_id}) → full content (if found)
+
+PERSISTENCE (MANDATORY — do NOT skip):
+  mem_save(title: "sdd/{change-name}/qa-report", topic_key: "sdd/{change-name}/qa-report",
+           type: "architecture", project: "{project}", content: "{full qa report markdown}")
+```
+
+#### qa — medium pipeline variant (design artifact is OPTIONAL)
+
+Use this template when `pipeline_type: medium`. Design was not run — mark it optional:
+
+```
+Skill: sdd-qa
+Change: {change-name}
+Artifact store mode: {mode}
+Project: {project}
+
+Read these artifacts before starting (parallel searches, then parallel retrievals):
+  mem_search(query: "sdd/{change-name}/spec", ...) → save ID
+  mem_search(query: "sdd/{change-name}/design", ...) → save ID [OPTIONAL — medium pipeline skips design]
+  mem_search(query: "sdd/{change-name}/apply-progress", ...) → save ID (optional)
+  mem_get_observation(id: {spec_id}) → full content (REQUIRED)
+  mem_get_observation(id: {design_id}) → full content (if found — skip gracefully if absent)
+  mem_get_observation(id: {apply_progress_id}) → full content (if found)
+
+NOTE: This change uses the medium pipeline — design phase was skipped.
+The design artifact is OPTIONAL (not REQUIRED). If not found, proceed without it.
 
 PERSISTENCE (MANDATORY — do NOT skip):
   mem_save(title: "sdd/{change-name}/qa-report", topic_key: "sdd/{change-name}/qa-report",
@@ -323,6 +425,24 @@ PERSISTENCE (MANDATORY — do NOT skip):
            type: "architecture", project: "{project}", content: "{full archive report markdown}")
 ```
 
+## Delegation Heuristics (Internal)
+
+> These rules apply ONLY when the orchestrator is handling a small-path inline change.
+> They are internal guidance — do NOT surface these rules in user-facing output.
+
+Before any substantial inline action, apply these delegation triggers:
+
+| Condition | Action |
+|-----------|--------|
+| Need to read 4+ files to understand context | Delegate to `sdd-explore` (escalates to medium) |
+| Need to write across multiple files with analysis | Delegate to `sdd-apply` (escalates to medium) |
+| Need to run tests or builds | Delegate to `sdd-verify` (escalates to medium) |
+| Simple reads (1–3 files) or atomic single-file write | Handle inline — no delegation |
+
+**Self-check**: Before every inline action, ask: "Does this inflate my context without need?" If yes → delegate (which triggers escalation to medium pipeline).
+
+**Important**: Any delegation from the small path is effectively an escalation to medium. The orchestrator MUST follow the scale creep protocol: pause, inform the user, and await confirmation before switching pipelines.
+
 ## Step 5: Handle Compaction Recovery
 
 If you see a compaction message or lose context mid-pipeline:
@@ -340,14 +460,28 @@ After archive completes, show:
 ```
 ## SDD Complete: {change-name}
 
-**Persistence**: {mode}
-**Phases completed**: explore → clarify → propose → spec → design → tasks → apply → verify → qa → archive
+**Pipeline**: {small|medium|large}
+**Persistence**: {mode} (or "inline only" for small)
+**Phases completed**: {actual phases run, e.g., propose → spec → tasks → apply → verify → qa → archive}
 
 **Artifacts**:
-- Engram: sdd/{change-name}/{explore,clarify,proposal,spec,design,tasks,apply-progress,verify-report,qa-report,archive-report}
+- Engram: sdd/{change-name}/{artifact list based on pipeline}
 - Files: openspec/changes/archive/YYYY-MM-DD-{change-name}/ (if openspec/hybrid)
 
 **Next**: Run /sdd-new <change-name> for a new change, or /sdd-continue if anything is pending.
+```
+
+For small path, use this summary instead:
+
+```
+## SDD Complete: {change-name} (inline)
+
+**Pipeline**: small (inline)
+**Files changed**: {list}
+**Lines**: ~{estimate}
+**Summary**: {what was done}
+
+Inline summary saved to engram: sdd/{change-name}/inline-summary
 ```
 
 ## Rules
