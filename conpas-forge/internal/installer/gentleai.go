@@ -20,6 +20,7 @@ var sddSkills = []string{
 	"branch-pr", "issue-creation", "judgment-day",
 	"go-testing",
 	"skill-creator", "skill-registry",
+	"update-checker",
 }
 
 func GentleAISkillCount() int {
@@ -144,6 +145,7 @@ func (g *GentleAIInstaller) Install(ctx context.Context, opts *InstallOptions, p
 		return result
 	}
 
+	result.InstalledVersion = version.Version
 	result.Success = true
 	return result
 }

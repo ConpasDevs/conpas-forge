@@ -115,9 +115,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch r.ModuleName {
 			case "Engram":
 				m.cfg.Modules.Engram.Installed = r.Success
+				if r.InstalledVersion != "" {
+					m.cfg.Modules.Engram.Version = r.InstalledVersion
+				}
 			case "Gentle AI":
 				m.cfg.Modules.GentleAI.Installed = r.Success
 				m.cfg.Modules.GentleAI.SkillsDeployed = installer.CountGentleAISkillsDeployed(r.PathsWritten)
+				if r.InstalledVersion != "" {
+					m.cfg.Modules.GentleAI.Version = r.InstalledVersion
+				}
 			case "Zoho Deluge":
 				m.cfg.Modules.ZohoDeluge.Installed = r.Success
 			}

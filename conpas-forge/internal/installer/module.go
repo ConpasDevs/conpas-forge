@@ -8,11 +8,12 @@ import (
 )
 
 type Result struct {
-	ModuleName   string
-	Success      bool
-	PathsWritten []string
-	Warnings     []string
-	Err          error
+	ModuleName       string
+	Success          bool
+	PathsWritten     []string
+	Warnings         []string
+	Err              error
+	InstalledVersion string
 }
 
 type Module interface {

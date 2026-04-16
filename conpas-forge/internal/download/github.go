@@ -48,6 +48,15 @@ func FetchLatestRelease(ctx context.Context, client *http.Client, owner, repo st
 	return &release, nil
 }
 
+// FetchLatestTag is a thin wrapper over FetchLatestRelease that returns only the tag name.
+func FetchLatestTag(ctx context.Context, client *http.Client, owner, repo string) (string, error) {
+	release, err := FetchLatestRelease(ctx, client, owner, repo)
+	if err != nil {
+		return "", err
+	}
+	return release.TagName, nil
+}
+
 func SelectAsset(release *GitHubRelease, goos, goarch string) (archiveAsset *GitHubAsset, checksumAsset *GitHubAsset, err error) {
 	pattern := AssetPattern(goos, goarch)
 	ext := ArchiveExt(goos)

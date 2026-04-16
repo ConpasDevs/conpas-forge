@@ -141,6 +141,7 @@ func (e *EngramInstaller) Install(ctx context.Context, opts *InstallOptions, pro
 	}
 
 	emit("done", fmt.Sprintf("Engram %s installed", release.TagName), 100)
+	result.InstalledVersion = release.TagName
 	result.Success = true
 	return result
 }

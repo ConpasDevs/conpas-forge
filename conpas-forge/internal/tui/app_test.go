@@ -16,7 +16,7 @@ func TestNewModulesModelUsesRealGentleAISkillCount(t *testing.T) {
 		name string
 		want string
 	}{
-		{name: "gentle ai description reflects source skill count", want: "20 skills + CLAUDE.md + output styles"},
+		{name: "gentle ai description reflects source skill count", want: "21 skills + CLAUDE.md + output styles"},
 	}
 
 	for _, tt := range tests {
@@ -118,5 +118,24 @@ func TestInstallDoneSurfacesConfigSaveFailure(t *testing.T) {
 				t.Fatal("expected install results to be marked as failed")
 			}
 		})
+	}
+}
+
+func TestInstallDoneMsg_PersistsInstalledVersionToConfig(t *testing.T) {
+	// Use a real temp dir so config.Save can succeed — point config home to it.
+	tempDir := t.TempDir()
+	cfg := config.DefaultConfig()
+	model := New(&cfg, installer.Platform{}, tempDir)
+
+	updated, _ := model.Update(InstallDoneMsg{Results: []installer.Result{
+		{ModuleName: "Engram", Success: true, InstalledVersion: "v1.2.3"},
+	}})
+
+	got := updated.(Model)
+	if got.cfg.Modules.Engram.Version != "v1.2.3" {
+		t.Errorf("Engram.Version = %q, want %q", got.cfg.Modules.Engram.Version, "v1.2.3")
+	}
+	if !got.cfg.Modules.Engram.Installed {
+		t.Error("expected Engram to be marked installed after successful install")
 	}
 }
