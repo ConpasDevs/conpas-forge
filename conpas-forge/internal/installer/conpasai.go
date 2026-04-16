@@ -15,6 +15,8 @@ func NewConpasAIInstaller() *ConpasAIInstaller { return &ConpasAIInstaller{} }
 
 func (c *ConpasAIInstaller) Name() string { return "Zoho Deluge" }
 
+func (c *ConpasAIInstaller) ExpectedSkills() []string { return []string{"zoho-deluge"} }
+
 func (c *ConpasAIInstaller) Install(ctx context.Context, opts *InstallOptions, progress func(ProgressEvent)) Result {
 	result := Result{ModuleName: "Zoho Deluge"}
 

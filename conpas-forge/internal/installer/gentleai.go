@@ -60,6 +60,8 @@ func NewGentleAIInstaller() *GentleAIInstaller { return &GentleAIInstaller{} }
 
 func (g *GentleAIInstaller) Name() string { return "Gentle AI" }
 
+func (g *GentleAIInstaller) ExpectedSkills() []string { return sddSkills }
+
 func (g *GentleAIInstaller) Install(ctx context.Context, opts *InstallOptions, progress func(ProgressEvent)) Result {
 	result := Result{ModuleName: "Gentle AI"}
 	emit := func(status, detail string) {
