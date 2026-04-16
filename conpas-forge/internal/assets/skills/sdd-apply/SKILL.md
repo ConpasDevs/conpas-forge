@@ -42,6 +42,16 @@ Before writing ANY code:
 3. Read existing code in affected files — understand current patterns
 4. Check the project's coding conventions from `config.yaml`
 
+#### Step 2a: Capture Tasks ID (Engram mode only)
+
+When reading the `sdd/{change-name}/tasks` artifact via `mem_search` and `mem_get_observation`, you MUST save the Observation ID as `tasks-observation-id`. You will need this exact ID in Step 6 to update the checkboxes.
+
+```
+tasks-observation-id = <ID returned by mem_get_observation when reading the tasks artifact>
+```
+
+**Do NOT proceed past Step 2 without recording this ID.**
+
 #### Step 2b: Read Previous Apply-Progress (if exists)
 
 Before starting work, check for existing apply-progress:
@@ -114,6 +124,11 @@ Update `tasks.md` — change `- [ ]` to `- [x]` for completed tasks:
 - [ ] 1.3 Add auth routes to `internal/server/server.go`  ← still pending
 ```
 
+**In engram mode**:
+1. Take the original content string from the `tasks` observation (the full text you received from `mem_get_observation`).
+2. For each task you completed, replace `- [ ]` with `- [x]` in that string.
+3. Store this result as `updated-tasks-string` — you will pass it to `mem_update` in Step 6.
+
 ### Step 6: Persist Progress
 
 **This step is MANDATORY — do NOT skip it.**
@@ -123,6 +138,14 @@ Follow **Section C** from `skills/_shared/sdd-phase-common.md`.
 - topic_key: `sdd/{change-name}/apply-progress`
 - type: `architecture`
 - Also update the tasks artifact with `[x]` marks via `mem_update` (engram) or file edit (openspec/hybrid).
+
+**Engram Mode — MANDATORY `mem_update` call**:
+
+You MUST explicitly call:
+```
+mem_update(id: tasks-observation-id, content: updated-tasks-string)
+```
+where `tasks-observation-id` is the ID you captured in Step 2a and `updated-tasks-string` is the modified content string from Step 5. This is NOT optional — skipping this call means the tasks artifact will NOT reflect completed work.
 
 #### Merge Protocol
 
