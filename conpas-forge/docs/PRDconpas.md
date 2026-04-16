@@ -6,8 +6,6 @@
 |---------|------|--------|--------|
 | 0.1.0 | 2026-04-16 | conpas team | Draft |
 
-> **Note**: This document is a fork/adaptation of `docs/PRD.md` (Gentleman AI Installer). Where they diverge, this document takes precedence for conpas-forge.
-
 ---
 
 ## 1. Problem Statement
@@ -62,8 +60,8 @@ conpas-forge (Go binary)
 │   └── check       — version check (--json flag for machine output)
 ├── internal/
 │   ├── installers/
-│   │   ├── GentleAIInstaller   — SDD skills + CLAUDE.md + output styles + shared assets
-│   │   ├── ConpasAIInstaller   — Zoho Deluge skill
+│   │   ├── SDDInstaller         — SDD skills + CLAUDE.md + output styles + shared assets
+│   │   ├── ZohoDelugeInstaller  — Zoho Deluge skill
 │   │   ├── EngramInstaller     — downloads Engram binary + registers MCP server
 │   │   └── ClaudeCodeInstaller — writes bypassPermissions Claude Code settings
 │   ├── manifest/   — .forge-manifest.json tracking + stale file cleanup
@@ -83,17 +81,17 @@ conpas-forge (Go binary)
 
 ## 6. Current Modules
 
-### 6.1 Gentle AI Skills
-**Installer**: `GentleAIInstaller`
+### 6.1 SDD Skills
+**Installer**: `SDDInstaller`
 
 Installs 21 SDD skills + CLAUDE.md persona + output styles + shared assets into `~/.config/opencode/skills/` (and equivalent paths for Claude Code).
 
-Skills include the full SDD pipeline: `sdd-orchestrator`, `sdd-explore`, `sdd-propose`, `sdd-spec`, `sdd-design`, `sdd-tasks`, `sdd-apply`, `sdd-verify`, `sdd-qa`, `sdd-archive`, `sdd-init`, `sdd-onboard`, `sdd-clarify`, `branch-pr`, `issue-creation`, `judgment-day`, `go-testing`, `skill-creator`, `skill-registry`, `sdd-update-checker`, and `zoho-deluge` (via ConpasAIInstaller).
+Skills include the full SDD pipeline: `sdd-orchestrator`, `sdd-explore`, `sdd-propose`, `sdd-spec`, `sdd-design`, `sdd-tasks`, `sdd-apply`, `sdd-verify`, `sdd-qa`, `sdd-archive`, `sdd-init`, `sdd-onboard`, `sdd-clarify`, `branch-pr`, `issue-creation`, `judgment-day`, `go-testing`, `skill-creator`, `skill-registry`, and `update-checker`.
 
 Also writes `CLAUDE.md` to `~/.config/opencode/` with the team persona.
 
 ### 6.2 Zoho Deluge
-**Installer**: `ConpasAIInstaller`
+**Installer**: `ZohoDelugeInstaller`
 
 Installs the `zoho-deluge` skill — mandatory coding standard for all Zoho Deluge / Creator / CRM automation work. Focused on Extreme Statement Optimization, security, and maintainability.
 
@@ -105,7 +103,7 @@ Downloads the Engram binary for the detected platform/arch and registers it as a
 > **Note**: Engram auto-start on tool invocation is on the backlog — currently requires manual start.
 
 ### 6.4 Claude Code Settings
-**Installer**: `ClaudeCodeInstaller`
+**Installer**: `ClaudeSettingsInstaller`
 
 Writes Claude Code settings with `bypassPermissions: true`. This is the team-standard security posture — hardcoded, not user-configurable.
 
