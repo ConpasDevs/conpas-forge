@@ -8,6 +8,14 @@
       "sessions": 3,
       "memories": 29,
       "prompts": 17
+    },
+    {
+      "id": "e3da4bea",
+      "created_by": "AndrésCarballoCoedo",
+      "created_at": "2026-04-16T07:43:22Z",
+      "sessions": 0,
+      "memories": 37,
+      "prompts": 0
     }
   ]
 }
