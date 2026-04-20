@@ -2,16 +2,20 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
+	"github.com/conpasDEVS/conpas-forge/internal/checker"
 	"github.com/conpasDEVS/conpas-forge/internal/config"
 	"github.com/conpasDEVS/conpas-forge/internal/installer"
 	"github.com/conpasDEVS/conpas-forge/internal/tui"
 )
+
+var runHealthForInstall = checker.RunHealth
 
 var installCmd = &cobra.Command{
 	Use:   "install",
@@ -68,5 +72,22 @@ func runInstall(_ *cobra.Command, _ []string) error {
 		os.Exit(1)
 	}
 
+	postInstallHealthSummary(os.Stdout, homeDir, fm.Results(), fm.Cancelled())
+
 	return nil
+}
+
+func postInstallHealthSummary(out io.Writer, homeDir string, results []installer.Result, cancelled bool) {
+	if cancelled || installer.HasErrors(results) {
+		return
+	}
+
+	report, err := runHealthForInstall(checker.HealthOptions{HomeDir: homeDir})
+	if err != nil {
+		fmt.Fprintf(out, "\nPost-install health summary unavailable: %v\n", err) //nolint:errcheck
+		return
+	}
+
+	fmt.Fprintln(out)                                           //nolint:errcheck
+	fmt.Fprint(out, checker.RenderConciseHealthSummary(report)) //nolint:errcheck
 }
