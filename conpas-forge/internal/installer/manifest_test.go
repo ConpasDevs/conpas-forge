@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -157,6 +158,111 @@ func TestWriteManifest(t *testing.T) {
 			t.Fatalf("manifest skills = %v, want [skill-b skill-c]", got.Skills)
 		}
 	})
+}
+
+// ─── WriteManifestFull ────────────────────────────────────────────────────────
+
+func TestWriteManifestFull(t *testing.T) {
+	t.Run("roundtrip with output_styles field", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, ".forge-manifest.json")
+
+		skills := []string{"sdd-init", "go-testing"}
+		outputStyles := []string{"tony-stark.md"}
+		if err := WriteManifestFull(path, skills, outputStyles); err != nil {
+			t.Fatalf("WriteManifestFull() error: %v", err)
+		}
+
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read manifest file: %v", err)
+		}
+		var got ForgeManifest
+		if err := json.Unmarshal(data, &got); err != nil {
+			t.Fatalf("parse manifest: %v", err)
+		}
+		if len(got.Skills) != 2 {
+			t.Fatalf("manifest skills = %v, want %v", got.Skills, skills)
+		}
+		if len(got.OutputStyles) != 1 || got.OutputStyles[0] != "tony-stark.md" {
+			t.Fatalf("manifest output_styles = %v, want [tony-stark.md]", got.OutputStyles)
+		}
+	})
+
+	t.Run("nil output_styles produces omitempty (no field in JSON)", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, ".forge-manifest.json")
+
+		if err := WriteManifestFull(path, []string{"skill-a"}, nil); err != nil {
+			t.Fatalf("WriteManifestFull() error: %v", err)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read manifest file: %v", err)
+		}
+		// output_styles field should be absent (omitempty)
+		if strings.Contains(string(data), "output_styles") {
+			t.Fatalf("expected output_styles to be omitted for nil slice, got: %s", data)
+		}
+	})
+}
+
+// Scenario 6.7 — Manifest backward compatibility
+func TestManifestBackwardCompatibility(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, ".forge-manifest.json")
+	// JSON from a prior version that has no output_styles field
+	oldJSON := `{"skills":["sdd-init","go-testing"]}`
+	if err := os.WriteFile(path, []byte(oldJSON), 0644); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+
+	m, err := ReadManifest(path)
+	if err != nil {
+		t.Fatalf("ReadManifest() unexpected error: %v", err)
+	}
+	if len(m.Skills) != 2 {
+		t.Fatalf("expected 2 skills, got %v", m.Skills)
+	}
+	if m.OutputStyles != nil {
+		t.Fatalf("expected OutputStyles == nil for old manifest, got %v", m.OutputStyles)
+	}
+}
+
+// Scenario 6.8 — Manifest records active output-style file after install
+func TestManifestOutputStylesField(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, ".forge-manifest.json")
+
+	if err := WriteManifestFull(path, []string{"sdd-init"}, []string{"tony-stark.md"}); err != nil {
+		t.Fatalf("WriteManifestFull() error: %v", err)
+	}
+
+	m, err := ReadManifest(path)
+	if err != nil {
+		t.Fatalf("ReadManifest() unexpected error: %v", err)
+	}
+	if len(m.OutputStyles) != 1 || m.OutputStyles[0] != "tony-stark.md" {
+		t.Fatalf("expected OutputStyles=[tony-stark.md], got %v", m.OutputStyles)
+	}
+}
+
+// Old WriteManifest backward compat — OutputStyles stays nil
+func TestWriteManifestBackwardCompat(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, ".forge-manifest.json")
+
+	if err := WriteManifest(path, []string{"sdd-init"}); err != nil {
+		t.Fatalf("WriteManifest() error: %v", err)
+	}
+
+	m, err := ReadManifest(path)
+	if err != nil {
+		t.Fatalf("ReadManifest() unexpected error: %v", err)
+	}
+	if m.OutputStyles != nil {
+		t.Fatalf("expected OutputStyles == nil from old WriteManifest, got %v", m.OutputStyles)
+	}
 }
 
 // ─── CleanupStale ─────────────────────────────────────────────────────────────

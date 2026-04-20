@@ -11,9 +11,10 @@ import (
 	"github.com/conpasDEVS/conpas-forge/internal/config"
 )
 
-// ForgeManifest tracks the set of skills deployed by conpas-forge.
+// ForgeManifest tracks the set of skills and output-style files deployed by conpas-forge.
 type ForgeManifest struct {
-	Skills []string `json:"skills"`
+	Skills       []string `json:"skills"`
+	OutputStyles []string `json:"output_styles,omitempty"`
 }
 
 // ReadManifest reads the manifest at the given path.
@@ -35,8 +36,14 @@ func ReadManifest(path string) (*ForgeManifest, error) {
 }
 
 // WriteManifest atomically writes the given skill list to the manifest file at path.
+// Kept for backward compatibility — does not write the OutputStyles field.
 func WriteManifest(path string, skills []string) error {
-	data, err := json.Marshal(ForgeManifest{Skills: skills})
+	return WriteManifestFull(path, skills, nil)
+}
+
+// WriteManifestFull atomically writes skills and outputStyles to the manifest file at path.
+func WriteManifestFull(path string, skills []string, outputStyles []string) error {
+	data, err := json.Marshal(ForgeManifest{Skills: skills, OutputStyles: outputStyles})
 	if err != nil {
 		return fmt.Errorf("marshal manifest: %w", err)
 	}

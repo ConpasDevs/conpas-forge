@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/conpasDEVS/conpas-forge/internal/assets"
 	"github.com/conpasDEVS/conpas-forge/internal/config"
 	"github.com/conpasDEVS/conpas-forge/internal/installer"
 	"github.com/conpasDEVS/conpas-forge/internal/models"
@@ -105,6 +106,25 @@ func runConfig(cmd *cobra.Command, _ []string) error {
 	// Regenerate CLAUDE.md once
 	if err := persona.WriteCLAUDEMD(cfg, version.Version); err != nil {
 		return fmt.Errorf("regenerate CLAUDE.md: %w", err)
+	}
+
+	// Reconcile output styles when persona changed.
+	if personaFlag != "" {
+		styleFile := persona.OutputStyleFor(personaFlag)
+		if styleFile == "" {
+			return fmt.Errorf("output-style mapping missing for persona %q", personaFlag)
+		}
+		styleData, err := assets.FS.ReadFile("output-styles/" + styleFile)
+		if err != nil {
+			return fmt.Errorf("read output-style asset %q: %w", styleFile, err)
+		}
+		removed, err := installer.ReconcileOutputStyles(config.OutputStylesDir(), styleFile, styleData)
+		if err != nil {
+			return fmt.Errorf("reconcile output styles: %w", err)
+		}
+		for _, name := range removed {
+			fmt.Printf("  removed orphan output-style: %s\n", name)
+		}
 	}
 
 	if personaFlag != "" {
