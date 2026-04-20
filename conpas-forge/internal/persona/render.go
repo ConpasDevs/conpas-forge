@@ -12,14 +12,15 @@ import (
 )
 
 type CLAUDEMDData struct {
-	PersonaName    string
-	PersonaBlock   string
-	CoreBlock      string // content from personas/core.md — shared across all personas
-	ModelRows      []ModelRow
-	Version        string
-	GeneratedAt    string
-	EngramProtocol string // content from skills/engram-memory/SKILL.md
-	SddStrictTDD   string // "enabled" | "disabled" | "" (empty = not rendered, sdd-init auto-detects)
+	PersonaName     string
+	PersonaBlock    string
+	CoreBlock       string // content from personas/core.md — shared across all personas
+	ModelRows       []ModelRow
+	Version         string
+	GeneratedAt     string
+	EngramProtocol  string // content from skills/engram-memory/SKILL.md
+	SddStrictTDD    string // "enabled" | "disabled" | "" (empty = not rendered, sdd-init auto-detects)
+	OutputStyleFile string // e.g. "tony-stark.md" — the single active output-style file for this persona
 }
 
 type ModelRow struct {
@@ -54,15 +55,24 @@ func BuildCLAUDEMDData(cfg *config.Config, ver string) (*CLAUDEMDData, error) {
 		return nil, fmt.Errorf("read skills/engram-memory/SKILL.md: %w", err)
 	}
 
+	styleFile := OutputStyleFor(cfg.Persona)
+	if styleFile == "" {
+		return nil, fmt.Errorf("output-style mapping missing for persona %q", cfg.Persona)
+	}
+	if _, err := assets.FS.ReadFile("output-styles/" + styleFile); err != nil {
+		return nil, fmt.Errorf("read output-style asset %q: %w", styleFile, err)
+	}
+
 	return &CLAUDEMDData{
-		PersonaName:    cfg.Persona,
-		PersonaBlock:   string(content),
-		CoreBlock:      coreBlock,
-		ModelRows:      rows,
-		Version:        ver,
-		GeneratedAt:    time.Now().Format(time.RFC3339),
-		EngramProtocol: engramProtocol,
-		SddStrictTDD:   cfg.SddStrictTDD,
+		PersonaName:     cfg.Persona,
+		PersonaBlock:    string(content),
+		CoreBlock:       coreBlock,
+		ModelRows:       rows,
+		Version:         ver,
+		GeneratedAt:     time.Now().Format(time.RFC3339),
+		EngramProtocol:  engramProtocol,
+		SddStrictTDD:    cfg.SddStrictTDD,
+		OutputStyleFile: styleFile,
 	}, nil
 }
 

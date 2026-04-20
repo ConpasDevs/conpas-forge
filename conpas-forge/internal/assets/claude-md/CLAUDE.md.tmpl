@@ -70,7 +70,9 @@ The following skills are installed in `~/.claude/skills/`:
 
 ## Output Styles
 
-Output style files are available in `~/.claude/output-styles/`.
+Active output style: `~/.claude/output-styles/{{ .OutputStyleFile }}` (bound to persona `{{ .PersonaName }}`).
+
+This is the only output-style file conpas-forge installs. If additional files appear in that directory, they are user-added and are NOT part of the persona contract — ignore them unless the user explicitly asks you to adopt them.
 
 ---
 

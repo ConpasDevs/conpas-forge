@@ -121,25 +121,32 @@ func (g *GentleAIInstaller) Install(ctx context.Context, opts *InstallOptions, p
 		}
 	}
 
-	// Step 4: Deploy output styles
-	emit("writing", "Deploying output styles...")
-	if entries, err := assets.FS.ReadDir("output-styles"); err == nil {
-		for _, e := range entries {
-			if e.IsDir() || strings.HasPrefix(e.Name(), ".") || e.Name() == "placeholder.txt" {
-				continue
-			}
-			data, err := assets.FS.ReadFile("output-styles/" + e.Name())
-			if err != nil {
-				deployErrors = append(deployErrors, fmt.Sprintf("read output-style %s: %v", e.Name(), err))
-				continue
-			}
-			dest := filepath.Join(config.OutputStylesDir(), e.Name())
-			if err := config.AtomicWrite(dest, data, 0644); err != nil {
-				deployErrors = append(deployErrors, fmt.Sprintf("write output-style %s: %v", e.Name(), err))
-				continue
-			}
-			result.PathsWritten = append(result.PathsWritten, dest)
-		}
+	// Step 4: Reconcile output styles — install exactly one file for the active persona.
+	emit("writing", "Reconciling output styles...")
+	styleFile := persona.OutputStyleFor(opts.Config.Persona)
+	if styleFile == "" {
+		result.Err = fmt.Errorf("output-style mapping missing for persona %q", opts.Config.Persona)
+		return result
+	}
+	styleData, err := assets.FS.ReadFile("output-styles/" + styleFile)
+	if err != nil {
+		result.Err = fmt.Errorf("read output-style asset %q: %w", styleFile, err)
+		return result
+	}
+	removedStyles, err := ReconcileOutputStyles(config.OutputStylesDir(), styleFile, styleData)
+	if err != nil {
+		result.Err = fmt.Errorf("reconcile output styles: %w", err)
+		return result
+	}
+	for _, name := range removedStyles {
+		result.Warnings = append(result.Warnings, "removed orphan output-style: "+name)
+	}
+	result.PathsWritten = append(result.PathsWritten, filepath.Join(config.OutputStylesDir(), styleFile))
+
+	// Update manifest to record skills + active output-style file.
+	if err := WriteManifestFull(config.ForgeManifest(), sddSkills, []string{styleFile}); err != nil {
+		// Non-fatal: manifest write failure should not block install.
+		result.Warnings = append(result.Warnings, fmt.Sprintf("manifest write: %v", err))
 	}
 
 	if len(deployErrors) > 0 {
