@@ -50,7 +50,9 @@ func BuildCLAUDEMDData(cfg *config.Config, ver string) (*CLAUDEMDData, error) {
 	var engramProtocol string
 	if raw, err := assets.FS.ReadFile("skills/engram-memory/SKILL.md"); err == nil {
 		engramProtocol = string(raw)
-	} // silently ignore read failure — EngramProtocol stays ""
+	} else {
+		return nil, fmt.Errorf("read skills/engram-memory/SKILL.md: %w", err)
+	}
 
 	return &CLAUDEMDData{
 		PersonaName:    cfg.Persona,
