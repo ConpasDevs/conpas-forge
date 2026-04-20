@@ -175,22 +175,22 @@ func registerEngramMCP(ctx context.Context, binaryPath string) error {
 
 // engramMCPTools lists the Engram tool names that must be allowlisted in
 // ~/.claude/settings.json so Claude Code does not prompt for permission on each call.
-// Engram is registered with --tools=agent which enables plugin mode in Claude Code.
-// In plugin mode the tool prefix is mcp__plugin_<server>_<server>__ (not mcp__<server>__).
+// Claude Code MCP tool naming convention: mcp__<server-name>__<tool-name>
+// The server is registered as "engram" via `claude mcp add ... engram`.
 var engramMCPTools = []any{
-	"mcp__plugin_engram_engram__mem_capture_passive",
-	"mcp__plugin_engram_engram__mem_context",
-	"mcp__plugin_engram_engram__mem_delete",
-	"mcp__plugin_engram_engram__mem_get_observation",
-	"mcp__plugin_engram_engram__mem_merge_projects",
-	"mcp__plugin_engram_engram__mem_save",
-	"mcp__plugin_engram_engram__mem_save_prompt",
-	"mcp__plugin_engram_engram__mem_search",
-	"mcp__plugin_engram_engram__mem_session_end",
-	"mcp__plugin_engram_engram__mem_session_start",
-	"mcp__plugin_engram_engram__mem_session_summary",
-	"mcp__plugin_engram_engram__mem_stats",
-	"mcp__plugin_engram_engram__mem_suggest_topic_key",
-	"mcp__plugin_engram_engram__mem_timeline",
-	"mcp__plugin_engram_engram__mem_update",
+	"mcp__engram__mem_capture_passive",
+	"mcp__engram__mem_context",
+	"mcp__engram__mem_delete",
+	"mcp__engram__mem_get_observation",
+	"mcp__engram__mem_merge_projects",
+	"mcp__engram__mem_save",
+	"mcp__engram__mem_save_prompt",
+	"mcp__engram__mem_search",
+	"mcp__engram__mem_session_end",
+	"mcp__engram__mem_session_start",
+	"mcp__engram__mem_session_summary",
+	"mcp__engram__mem_stats",
+	"mcp__engram__mem_suggest_topic_key",
+	"mcp__engram__mem_timeline",
+	"mcp__engram__mem_update",
 }

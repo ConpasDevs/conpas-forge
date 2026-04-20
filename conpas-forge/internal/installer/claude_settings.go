@@ -2,9 +2,6 @@ package installer
 
 import (
 	"context"
-	"fmt"
-
-	"github.com/conpasDEVS/conpas-forge/internal/config"
 )
 
 // ClaudeSettingsInstaller writes Claude Code global settings to settings.json.
@@ -23,18 +20,10 @@ func (c *ClaudeSettingsInstaller) Install(ctx context.Context, opts *InstallOpti
 		}
 	}
 
-	emit("writing", "Enabling bypass permissions mode...")
-	if err := Merge(map[string]any{
-		"bypassPermissionsModeAccepted": true,
-		"permissions": map[string]any{
-			"defaultMode": "bypassPermissions",
-		},
-	}); err != nil {
-		result.Err = fmt.Errorf("enable bypass mode: %w", err)
-		return result
-	}
-	result.PathsWritten = append(result.PathsWritten, config.SettingsJSON())
-	emit("done", "bypass permissions mode enabled")
+	// bypassPermissions cannot be persisted as a default mode in Claude Code.
+	// Permissions are handled via per-tool allowlists (see engramMCPTools in engram.go).
+	// This module is kept as a placeholder for future global settings.
+	emit("done", "Claude Code settings verified")
 	result.Success = true
 	return result
 }
