@@ -12,6 +12,7 @@ import (
 
 	"github.com/conpasDEVS/conpas-forge/internal/config"
 	"github.com/conpasDEVS/conpas-forge/internal/download"
+	"github.com/conpasDEVS/conpas-forge/internal/engramtools"
 )
 
 // Engram GitHub repository — confirmed from exploration
@@ -131,7 +132,7 @@ func (e *EngramInstaller) Install(ctx context.Context, opts *InstallOptions, pro
 	emit("writing", "Allowlisting Engram tools...", -1)
 	allowEntry := map[string]any{
 		"permissions": map[string]any{
-			"allow": engramMCPTools,
+			"allow": engramtools.RequiredAllowlistAsAny(),
 		},
 	}
 	if err := Merge(allowEntry); err != nil {
@@ -173,24 +174,3 @@ func registerEngramMCP(ctx context.Context, binaryPath string) error {
 	return nil
 }
 
-// engramMCPTools lists the Engram tool names that must be allowlisted in
-// ~/.claude/settings.json so Claude Code does not prompt for permission on each call.
-// Claude Code MCP tool naming convention: mcp__<server-name>__<tool-name>
-// The server is registered as "engram" via `claude mcp add ... engram`.
-var engramMCPTools = []any{
-	"mcp__engram__mem_capture_passive",
-	"mcp__engram__mem_context",
-	"mcp__engram__mem_delete",
-	"mcp__engram__mem_get_observation",
-	"mcp__engram__mem_merge_projects",
-	"mcp__engram__mem_save",
-	"mcp__engram__mem_save_prompt",
-	"mcp__engram__mem_search",
-	"mcp__engram__mem_session_end",
-	"mcp__engram__mem_session_start",
-	"mcp__engram__mem_session_summary",
-	"mcp__engram__mem_stats",
-	"mcp__engram__mem_suggest_topic_key",
-	"mcp__engram__mem_timeline",
-	"mcp__engram__mem_update",
-}

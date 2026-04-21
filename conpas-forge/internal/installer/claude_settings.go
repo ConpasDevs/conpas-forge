@@ -21,7 +21,7 @@ func (c *ClaudeSettingsInstaller) Install(ctx context.Context, opts *InstallOpti
 	}
 
 	// bypassPermissions cannot be persisted as a default mode in Claude Code.
-	// Permissions are handled via per-tool allowlists (see engramMCPTools in engram.go).
+	// Permissions are handled via per-tool allowlists from the engramtools catalog (internal/engramtools/catalog.go).
 	// This module is kept as a placeholder for future global settings.
 	emit("done", "Claude Code settings verified")
 	result.Success = true

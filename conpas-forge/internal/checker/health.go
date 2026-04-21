@@ -9,6 +9,8 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+
+	"github.com/conpasDEVS/conpas-forge/internal/engramtools"
 )
 
 type HealthStatus string
@@ -52,24 +54,34 @@ type forgeManifest struct {
 	Skills []string `json:"skills"`
 }
 
-// Keep in sync with installer/engram.go engramMCPTools.
-var requiredEngramMCPTools = []string{
-	"mcp__engram__mem_capture_passive",
-	"mcp__engram__mem_context",
-	"mcp__engram__mem_delete",
-	"mcp__engram__mem_get_observation",
-	"mcp__engram__mem_merge_projects",
-	"mcp__engram__mem_save",
-	"mcp__engram__mem_save_prompt",
-	"mcp__engram__mem_search",
-	"mcp__engram__mem_session_end",
-	"mcp__engram__mem_session_start",
-	"mcp__engram__mem_session_summary",
-	"mcp__engram__mem_stats",
-	"mcp__engram__mem_suggest_topic_key",
-	"mcp__engram__mem_timeline",
-	"mcp__engram__mem_update",
+// claudeJSONRoot is the minimal parsing struct for ~/.claude.json.
+// Only the fields we validate are declared; all other keys are preserved
+// implicitly by virtue of never being re-serialized (health is read-only).
+type claudeJSONRoot struct {
+	MCPServers map[string]json.RawMessage `json:"mcpServers"`
 }
+
+// claudeJSONMCPEntry is a decoded MCP server entry.
+type claudeJSONMCPEntry struct {
+	Command string    `json:"command"`
+	// Args is a pointer to distinguish "key absent" from "key present but empty array"
+	// nil => missing; non-nil (even if empty) => present.
+	Args    *[]string `json:"args"`
+}
+
+// Remediation string constants — two canonical conventions:
+// install-path fixes vs explicit-repair fixes.
+const (
+	remediationInstallEngram        = "Run 'conpas-forge install' to register the Engram MCP server."
+	remediationInstallRestoreMCP    = "Run 'conpas-forge install' to restore the Engram MCP registration."
+	remediationInstallRefreshAllow  = "Re-run 'conpas-forge install' to refresh permissions.allow."
+	remediationInstallRedeploySkill = "Run 'conpas-forge install' to redeploy the Engram skill asset."
+	remediationInstallMigrateMCP    = "Run 'conpas-forge install' to migrate to the correct registration location."
+	remediationInstallFixClaudeJSON = "Fix ~/.claude.json JSON syntax or run 'conpas-forge install' to regenerate."
+	remediationCheckPermsReinstall  = "Check file permissions and re-run 'conpas-forge install'."
+	remediationRepairMCP            = "Run 'conpas-forge check --health --repair' to heal MCP registration."
+	remediationRepairAllowlist      = "Run 'conpas-forge check --health --repair' to refresh permissions.allow."
+)
 
 func RunHealth(opts HealthOptions) (HealthReport, error) {
 	homeDir := opts.HomeDir
@@ -89,8 +101,10 @@ func RunHealth(opts HealthOptions) (HealthReport, error) {
 	manifestPath := filepath.Join(skillsDir, ".forge-manifest.json")
 	outputStylesDir := filepath.Join(claudeDir, "output-styles")
 	engramBinaryPath := filepath.Join(homeDir, ".conpas-forge", "bin", engramBinaryName())
+	claudeJSONPath := filepath.Join(homeDir, ".claude.json")
+	skillMDPath := filepath.Join(skillsDir, "engram-memory", "SKILL.md")
 
-	checks := make([]HealthCheck, 0, 16)
+	checks := make([]HealthCheck, 0, 19)
 
 	claudeExists, claudeIsDir, err := pathExistsAsDir(claudeDir)
 	if err != nil {
@@ -127,7 +141,7 @@ func RunHealth(opts HealthOptions) (HealthReport, error) {
 		checks = append(checks, okCheck("core.claude_dir", "core", "~/.claude directory exists", claudeDir))
 	}
 
-	settingsCheck, settingsParsed, settingsAllowSet := evaluateSettingsCheck(claudeExists && claudeIsDir, settingsPath)
+	settingsCheck, settingsParsed, settingsAllowSet, settingsRoot := evaluateSettingsCheck(claudeExists && claudeIsDir, settingsPath)
 	checks = append(checks, settingsCheck)
 
 	if !(claudeExists && claudeIsDir) {
@@ -137,7 +151,10 @@ func RunHealth(opts HealthOptions) (HealthReport, error) {
 			skipCheck("skills.shared_dir", "skills", "skipped because ~/.claude prerequisite failed", sharedSkillsDir),
 			skipCheck("skills.manifest", "skills", "skipped because ~/.claude prerequisite failed", manifestPath),
 			skipCheck("skills.manifest_artifacts", "skills", "skipped because manifest prerequisite failed", skillsDir),
+			skipCheck("engram.tool_name_mapping", "engram", "skipped because ~/.claude prerequisite failed", skillMDPath),
 			skipCheck("engram.permissions_allow", "engram", "skipped because settings.json prerequisite failed", settingsPath),
+			skipCheck("engram.settings_consistency", "engram", "skipped because settings.json prerequisite failed", settingsPath),
+			skipCheck("engram.mcp_registration", "engram", "skipped because ~/.claude prerequisite failed", claudeJSONPath),
 			skipCheck("optional.output_styles", "optional", "skipped because ~/.claude prerequisite failed", outputStylesDir),
 		)
 		checks = append(checks, evaluateEngramBinaryCheck(engramBinaryPath))
@@ -195,25 +212,31 @@ func RunHealth(opts HealthOptions) (HealthReport, error) {
 				skillsDir,
 			))
 		}
+		// T2.4: tool_name_mapping runs only when skills dir is present
+		checks = append(checks, evaluateEngramToolNameMapping(skillMDPath))
 	} else {
 		checks = append(checks,
 			skipCheck("skills.shared_dir", "skills", "skipped because skills directory prerequisite failed", sharedSkillsDir),
 			skipCheck("skills.manifest", "skills", "skipped because skills directory prerequisite failed", manifestPath),
 			skipCheck("skills.manifest_artifacts", "skills", "skipped because manifest prerequisite failed", skillsDir),
+			skipCheck("engram.tool_name_mapping", "engram", "skipped because skills directory prerequisite failed", skillMDPath),
 		)
 	}
 
 	checks = append(checks, evaluateEngramBinaryCheck(engramBinaryPath))
 
+	// T2.3: MCP registration — no prerequisite on core.claude_dir (runs whenever homeDir resolved)
+	checks = append(checks, evaluateEngramMCPRegistration(claudeJSONPath))
+
 	if settingsParsed {
 		checks = append(checks, evaluateEngramAllowlistCheck(settingsPath, settingsAllowSet))
+		// T2.5: settings consistency — depends on parsed settings root
+		checks = append(checks, evaluateEngramSettingsConsistency(settingsPath, settingsRoot))
 	} else {
-		checks = append(checks, skipCheck(
-			"engram.permissions_allow",
-			"engram",
-			"skipped because settings.json prerequisite failed",
-			settingsPath,
-		))
+		checks = append(checks,
+			skipCheck("engram.permissions_allow", "engram", "skipped because settings.json prerequisite failed", settingsPath),
+			skipCheck("engram.settings_consistency", "engram", "skipped because settings.json prerequisite failed", settingsPath),
+		)
 	}
 
 	checks = append(checks, evaluateOutputStylesCheck(outputStylesDir))
@@ -259,9 +282,10 @@ func evaluateClaudeMDCheck(claudeMDPath string) HealthCheck {
 	return okCheck("core.claude_md_non_empty", "core", "CLAUDE.md exists and is non-empty", claudeMDPath)
 }
 
-func evaluateSettingsCheck(prereq bool, settingsPath string) (HealthCheck, bool, map[string]struct{}) {
+// T2.1: Updated signature — returns fourth value: parsed settings root map[string]any.
+func evaluateSettingsCheck(prereq bool, settingsPath string) (HealthCheck, bool, map[string]struct{}, map[string]any) {
 	if !prereq {
-		return skipCheck("core.settings_json", "core", "skipped because ~/.claude prerequisite failed", settingsPath), false, nil
+		return skipCheck("core.settings_json", "core", "skipped because ~/.claude prerequisite failed", settingsPath), false, nil, nil
 	}
 	data, err := os.ReadFile(settingsPath)
 	if err != nil {
@@ -274,7 +298,7 @@ func evaluateSettingsCheck(prereq bool, settingsPath string) (HealthCheck, bool,
 				"valid JSON file",
 				"missing",
 				"Run conpas-forge install to generate settings.json.",
-			), false, nil
+			), false, nil, nil
 		}
 		return failCheck(
 			"core.settings_json",
@@ -284,7 +308,7 @@ func evaluateSettingsCheck(prereq bool, settingsPath string) (HealthCheck, bool,
 			"readable valid JSON file",
 			err.Error(),
 			"Check file permissions and validate ~/.claude/settings.json.",
-		), false, nil
+		), false, nil, nil
 	}
 
 	var root map[string]any
@@ -297,11 +321,11 @@ func evaluateSettingsCheck(prereq bool, settingsPath string) (HealthCheck, bool,
 			"valid JSON",
 			err.Error(),
 			"Fix JSON syntax or re-run conpas-forge install.",
-		), false, nil
+		), false, nil, nil
 	}
 
 	allowSet := readAllowSet(root)
-	return okCheck("core.settings_json", "core", "settings.json exists and parses as valid JSON", settingsPath), true, allowSet
+	return okCheck("core.settings_json", "core", "settings.json exists and parses as valid JSON", settingsPath), true, allowSet, root
 }
 
 func evaluateSharedSkillsCheck(sharedSkillsDir string) HealthCheck {
@@ -428,6 +452,245 @@ func evaluateManifestArtifactsCheck(skillsDir string, manifest forgeManifest) He
 	return okCheck("skills.manifest_artifacts", "skills", "all manifest-declared skill artifacts are present", skillsDir)
 }
 
+// T2.3: evaluateEngramMCPRegistration parses ~/.claude.json and validates the
+// mcpServers.engram entry has the expected shape. No subprocess, no network.
+func evaluateEngramMCPRegistration(claudeJSONPath string) HealthCheck {
+	data, err := os.ReadFile(claudeJSONPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return failCheck(
+				"engram.mcp_registration",
+				"engram",
+				"~/.claude.json is missing",
+				claudeJSONPath,
+				"file exists with mcpServers.engram entry",
+				"missing",
+				remediationInstallEngram,
+			)
+		}
+		return failCheck(
+			"engram.mcp_registration",
+			"engram",
+			"unable to read ~/.claude.json",
+			claudeJSONPath,
+			"readable file",
+			err.Error(),
+			remediationCheckPermsReinstall,
+		)
+	}
+
+	var root claudeJSONRoot
+	if err := json.Unmarshal(data, &root); err != nil {
+		return failCheck(
+			"engram.mcp_registration",
+			"engram",
+			"~/.claude.json contains invalid JSON",
+			claudeJSONPath,
+			"valid JSON with mcpServers.engram entry",
+			err.Error(),
+			remediationInstallFixClaudeJSON,
+		)
+	}
+
+	if root.MCPServers == nil {
+		return failCheck(
+			"engram.mcp_registration",
+			"engram",
+			"~/.claude.json mcpServers.engram entry is missing",
+			claudeJSONPath,
+			"mcpServers.engram entry present",
+			"missing",
+			remediationInstallEngram,
+		)
+	}
+
+	rawEntry, ok := root.MCPServers["engram"]
+	if !ok {
+		return failCheck(
+			"engram.mcp_registration",
+			"engram",
+			"~/.claude.json mcpServers.engram entry is missing",
+			claudeJSONPath,
+			"mcpServers.engram entry present",
+			"missing",
+			remediationInstallEngram,
+		)
+	}
+
+	// Detect non-object value before attempting struct unmarshal (A-REG-06)
+	trimmed := strings.TrimSpace(string(rawEntry))
+	if len(trimmed) == 0 || trimmed[0] != '{' {
+		return failCheck(
+			"engram.mcp_registration",
+			"engram",
+			"~/.claude.json mcpServers.engram has unexpected shape",
+			claudeJSONPath,
+			"object with command and args fields",
+			"non-object value",
+			remediationInstallRestoreMCP,
+		)
+	}
+
+	var entry claudeJSONMCPEntry
+	if err := json.Unmarshal(rawEntry, &entry); err != nil {
+		return failCheck(
+			"engram.mcp_registration",
+			"engram",
+			"~/.claude.json mcpServers.engram has unexpected shape",
+			claudeJSONPath,
+			"object with command and args fields",
+			err.Error(),
+			remediationInstallRestoreMCP,
+		)
+	}
+
+	if strings.TrimSpace(entry.Command) == "" {
+		return failCheck(
+			"engram.mcp_registration",
+			"engram",
+			"~/.claude.json mcpServers.engram.command is missing or empty",
+			claudeJSONPath,
+			"non-empty command field",
+			"missing or empty",
+			remediationInstallRestoreMCP,
+		)
+	}
+
+	if entry.Args == nil {
+		return failCheck(
+			"engram.mcp_registration",
+			"engram",
+			"~/.claude.json mcpServers.engram.args is missing or not an array",
+			claudeJSONPath,
+			"args array field",
+			"missing",
+			remediationInstallRestoreMCP,
+		)
+	}
+
+	return okCheck("engram.mcp_registration", "engram", "~/.claude.json mcpServers.engram entry is well-formed", claudeJSONPath)
+}
+
+// T2.4: evaluateEngramToolNameMapping reads the engram-memory SKILL.md and validates
+// that the declared tool aliases match the canonical catalog exactly.
+func evaluateEngramToolNameMapping(skillMDPath string) HealthCheck {
+	data, err := os.ReadFile(skillMDPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return failCheck(
+				"engram.tool_name_mapping",
+				"engram",
+				"engram-memory skill asset is missing",
+				skillMDPath,
+				"SKILL.md with all canonical tool aliases",
+				"missing",
+				remediationInstallRedeploySkill,
+			)
+		}
+		return failCheck(
+			"engram.tool_name_mapping",
+			"engram",
+			"unable to read engram-memory skill asset",
+			skillMDPath,
+			"readable SKILL.md",
+			err.Error(),
+			remediationInstallRedeploySkill,
+		)
+	}
+
+	names := engramtools.ParseSkillToolNames(data)
+	if len(names) == 0 {
+		return warnCheck(
+			"engram.tool_name_mapping",
+			"engram",
+			"engram-memory skill asset declares no tools — unable to validate mapping",
+			skillMDPath,
+			"tool declarations matching canonical catalog",
+			"no tool declarations found",
+			remediationInstallRedeploySkill,
+		)
+	}
+
+	// Build parsed set
+	parsed := make(map[string]struct{}, len(names))
+	for _, n := range names {
+		parsed[n] = struct{}{}
+	}
+
+	required := engramtools.RequiredAliasSet()
+
+	// Extras in asset but not in catalog
+	extras := make([]string, 0)
+	for n := range parsed {
+		if _, ok := required[n]; !ok {
+			extras = append(extras, n)
+		}
+	}
+
+	// Missing in asset but in catalog
+	missing := make([]string, 0)
+	for n := range required {
+		if _, ok := parsed[n]; !ok {
+			missing = append(missing, n)
+		}
+	}
+
+	if len(extras) > 0 {
+		sort.Strings(extras)
+		preview := extras[0]
+		if len(extras) > 1 {
+			preview = fmt.Sprintf("%s (+%d more)", preview, len(extras)-1)
+		}
+		return failCheck(
+			"engram.tool_name_mapping",
+			"engram",
+			"engram-memory skill asset declares tools not in canonical catalog",
+			skillMDPath,
+			"tool aliases matching canonical catalog exactly",
+			preview,
+			remediationInstallRedeploySkill,
+		)
+	}
+
+	if len(missing) > 0 {
+		sort.Strings(missing)
+		preview := missing[0]
+		if len(missing) > 1 {
+			preview = fmt.Sprintf("%s (+%d more)", preview, len(missing)-1)
+		}
+		return failCheck(
+			"engram.tool_name_mapping",
+			"engram",
+			"engram-memory skill asset is missing catalog tools",
+			skillMDPath,
+			"tool aliases matching canonical catalog exactly",
+			preview,
+			remediationInstallRedeploySkill,
+		)
+	}
+
+	return okCheck("engram.tool_name_mapping", "engram", "engram-memory skill asset tool aliases match canonical catalog", skillMDPath)
+}
+
+// T2.5: evaluateEngramSettingsConsistency inspects the already-parsed settings.json
+// root for legacy Engram MCP keys that indicate a partial or pre-migration installation.
+func evaluateEngramSettingsConsistency(settingsPath string, settingsRoot map[string]any) HealthCheck {
+	if mcpServers, ok := settingsRoot["mcpServers"].(map[string]any); ok {
+		if _, hasEngram := mcpServers["engram"]; hasEngram {
+			return warnCheck(
+				"engram.settings_consistency",
+				"engram",
+				"settings.json contains an mcpServers.engram entry — MCP registration should live in ~/.claude.json",
+				settingsPath,
+				"no mcpServers.engram in settings.json",
+				"mcpServers.engram present",
+				remediationInstallMigrateMCP,
+			)
+		}
+	}
+	return okCheck("engram.settings_consistency", "engram", "settings.json has no legacy Engram MCP keys", settingsPath)
+}
+
 func evaluateEngramBinaryCheck(binaryPath string) HealthCheck {
 	info, err := os.Stat(binaryPath)
 	if err != nil {
@@ -480,9 +743,10 @@ func evaluateEngramBinaryCheck(binaryPath string) HealthCheck {
 	return okCheck("engram.binary", "engram", "Engram binary exists and is non-empty", binaryPath)
 }
 
+// T2.6: evaluateEngramAllowlistCheck now consumes engramtools.RequiredAllowlist().
 func evaluateEngramAllowlistCheck(settingsPath string, allowSet map[string]struct{}) HealthCheck {
 	missing := make([]string, 0)
-	for _, tool := range requiredEngramMCPTools {
+	for _, tool := range engramtools.RequiredAllowlist() {
 		if _, ok := allowSet[tool]; !ok {
 			missing = append(missing, tool)
 		}
@@ -501,7 +765,7 @@ func evaluateEngramAllowlistCheck(settingsPath string, allowSet map[string]struc
 			settingsPath,
 			"contains all required Engram MCP tools",
 			preview,
-			"Re-run conpas-forge install to refresh permissions.allow.",
+			remediationInstallRefreshAllow,
 		)
 	}
 

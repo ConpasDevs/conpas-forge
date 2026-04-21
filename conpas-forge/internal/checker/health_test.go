@@ -2,10 +2,14 @@ package checker
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
+
+	"github.com/conpasDEVS/conpas-forge/internal/engramtools"
 )
 
 func TestRunHealth_TableDriven(t *testing.T) {
@@ -21,14 +25,17 @@ func TestRunHealth_TableDriven(t *testing.T) {
 			},
 			assertion: func(t *testing.T, report HealthReport) {
 				if report.Summary.Fail != 0 {
-					t.Fatalf("fail count = %d, want 0", report.Summary.Fail)
+					t.Fatalf("fail count = %d, want 0\nchecks: %s", report.Summary.Fail, dumpChecks(report))
 				}
 				if report.Summary.Warn != 0 {
-					t.Fatalf("warn count = %d, want 0", report.Summary.Warn)
+					t.Fatalf("warn count = %d, want 0\nchecks: %s", report.Summary.Warn, dumpChecks(report))
 				}
 				mustStatus(t, report, "core.settings_json", HealthOK)
 				mustStatus(t, report, "skills.manifest_artifacts", HealthOK)
 				mustStatus(t, report, "engram.permissions_allow", HealthOK)
+				mustStatus(t, report, "engram.mcp_registration", HealthOK)
+				mustStatus(t, report, "engram.tool_name_mapping", HealthOK)
+				mustStatus(t, report, "engram.settings_consistency", HealthOK)
 			},
 		},
 		{
@@ -40,6 +47,7 @@ func TestRunHealth_TableDriven(t *testing.T) {
 			assertion: func(t *testing.T, report HealthReport) {
 				mustStatus(t, report, "core.settings_json", HealthFail)
 				mustStatus(t, report, "engram.permissions_allow", HealthSkip)
+				mustStatus(t, report, "engram.settings_consistency", HealthSkip)
 				if report.Summary.Fail == 0 {
 					t.Fatal("expected at least one fail")
 				}
@@ -54,6 +62,8 @@ func TestRunHealth_TableDriven(t *testing.T) {
 			assertion: func(t *testing.T, report HealthReport) {
 				mustStatus(t, report, "core.settings_json", HealthFail)
 				mustStatus(t, report, "engram.permissions_allow", HealthSkip)
+				// T2.10: settings_json_prereq_skips_consistency
+				mustStatus(t, report, "engram.settings_consistency", HealthSkip)
 			},
 		},
 		{
@@ -111,7 +121,7 @@ func TestRunHealth_TableDriven(t *testing.T) {
 			assertion: func(t *testing.T, report HealthReport) {
 				mustStatus(t, report, "optional.output_styles", HealthWarn)
 				if report.Summary.Fail != 0 {
-					t.Fatalf("fail count = %d, want 0", report.Summary.Fail)
+					t.Fatalf("fail count = %d, want 0\nchecks: %s", report.Summary.Fail, dumpChecks(report))
 				}
 			},
 		},
@@ -128,6 +138,252 @@ func TestRunHealth_TableDriven(t *testing.T) {
 				mustStatus(t, report, "core.claude_dir", HealthFail)
 				mustStatus(t, report, "core.claude_md_non_empty", HealthSkip)
 				mustStatus(t, report, "core.settings_json", HealthSkip)
+			},
+		},
+		// T2.10 — New health test table entries (16 entries)
+		{
+			name: "mcp_registration_missing_claude_json",
+			setup: func(t *testing.T, home string) {
+				writeHealthyFixture(t, home, true)
+				mustRemove(t, filepath.Join(home, ".claude.json"))
+			},
+			assertion: func(t *testing.T, report HealthReport) {
+				mustStatus(t, report, "engram.mcp_registration", HealthFail)
+				check := findCheck(t, report, "engram.mcp_registration")
+				if !strings.Contains(check.Message, "missing") {
+					t.Errorf("message %q should mention missing", check.Message)
+				}
+			},
+		},
+		{
+			name: "mcp_registration_malformed_json",
+			setup: func(t *testing.T, home string) {
+				writeHealthyFixture(t, home, true)
+				mustWriteFile(t, filepath.Join(home, ".claude.json"), []byte("{"))
+			},
+			assertion: func(t *testing.T, report HealthReport) {
+				mustStatus(t, report, "engram.mcp_registration", HealthFail)
+				check := findCheck(t, report, "engram.mcp_registration")
+				if !strings.Contains(check.Message, "invalid JSON") {
+					t.Errorf("message %q should mention invalid JSON", check.Message)
+				}
+			},
+		},
+		{
+			name: "mcp_registration_no_mcp_servers_key",
+			setup: func(t *testing.T, home string) {
+				writeHealthyFixture(t, home, true)
+				writeClaudeJSON(t, home, map[string]any{})
+			},
+			assertion: func(t *testing.T, report HealthReport) {
+				mustStatus(t, report, "engram.mcp_registration", HealthFail)
+				check := findCheck(t, report, "engram.mcp_registration")
+				if !strings.Contains(check.Message, "missing") {
+					t.Errorf("message %q should mention missing", check.Message)
+				}
+			},
+		},
+		{
+			name: "mcp_registration_no_engram_entry",
+			setup: func(t *testing.T, home string) {
+				writeHealthyFixture(t, home, true)
+				writeClaudeJSON(t, home, map[string]any{"mcpServers": map[string]any{}})
+			},
+			assertion: func(t *testing.T, report HealthReport) {
+				mustStatus(t, report, "engram.mcp_registration", HealthFail)
+			},
+		},
+		{
+			name: "mcp_registration_engram_not_object",
+			setup: func(t *testing.T, home string) {
+				writeHealthyFixture(t, home, true)
+				writeClaudeJSON(t, home, map[string]any{
+					"mcpServers": map[string]any{"engram": "bad-value"},
+				})
+			},
+			assertion: func(t *testing.T, report HealthReport) {
+				mustStatus(t, report, "engram.mcp_registration", HealthFail)
+				check := findCheck(t, report, "engram.mcp_registration")
+				if !strings.Contains(check.Message, "unexpected shape") {
+					t.Errorf("message %q should mention unexpected shape", check.Message)
+				}
+			},
+		},
+		{
+			name: "mcp_registration_missing_command",
+			setup: func(t *testing.T, home string) {
+				writeHealthyFixture(t, home, true)
+				writeClaudeJSON(t, home, map[string]any{
+					"mcpServers": map[string]any{
+						"engram": map[string]any{
+							"args": []any{"mcp", "--tools=agent"},
+						},
+					},
+				})
+			},
+			assertion: func(t *testing.T, report HealthReport) {
+				mustStatus(t, report, "engram.mcp_registration", HealthFail)
+				check := findCheck(t, report, "engram.mcp_registration")
+				if !strings.Contains(check.Message, "command") {
+					t.Errorf("message %q should mention command", check.Message)
+				}
+			},
+		},
+		{
+			name: "mcp_registration_missing_args",
+			setup: func(t *testing.T, home string) {
+				writeHealthyFixture(t, home, true)
+				writeClaudeJSON(t, home, map[string]any{
+					"mcpServers": map[string]any{
+						"engram": map[string]any{
+							"command": "/path/to/engram",
+						},
+					},
+				})
+			},
+			assertion: func(t *testing.T, report HealthReport) {
+				mustStatus(t, report, "engram.mcp_registration", HealthFail)
+				check := findCheck(t, report, "engram.mcp_registration")
+				if !strings.Contains(check.Message, "args") {
+					t.Errorf("message %q should mention args", check.Message)
+				}
+			},
+		},
+		{
+			name: "mcp_registration_well_formed",
+			setup: func(t *testing.T, home string) {
+				writeHealthyFixture(t, home, true)
+				// Already written by writeHealthyFixture — just verify it passes
+			},
+			assertion: func(t *testing.T, report HealthReport) {
+				mustStatus(t, report, "engram.mcp_registration", HealthOK)
+			},
+		},
+		{
+			name: "permissions_allow_extra_user_entries",
+			setup: func(t *testing.T, home string) {
+				writeHealthyFixture(t, home, true)
+				// Add extra user entries on top of the 15 required tools
+				allow := append(engramtools.RequiredAllowlistAsAny(), "Bash", "mcp__custom__my_tool")
+				mustWriteJSON(t, filepath.Join(home, ".claude", "settings.json"), map[string]any{
+					"permissions": map[string]any{"allow": allow},
+				})
+			},
+			assertion: func(t *testing.T, report HealthReport) {
+				mustStatus(t, report, "engram.permissions_allow", HealthOK)
+			},
+		},
+		{
+			name: "tool_mapping_skill_missing",
+			setup: func(t *testing.T, home string) {
+				writeHealthyFixture(t, home, true)
+				mustRemove(t, filepath.Join(home, ".claude", "skills", "engram-memory", "SKILL.md"))
+			},
+			assertion: func(t *testing.T, report HealthReport) {
+				mustStatus(t, report, "engram.tool_name_mapping", HealthFail)
+				check := findCheck(t, report, "engram.tool_name_mapping")
+				if !strings.Contains(check.Message, "missing") {
+					t.Errorf("message %q should mention missing", check.Message)
+				}
+			},
+		},
+		{
+			name: "tool_mapping_extra_tool_in_asset",
+			setup: func(t *testing.T, home string) {
+				writeHealthyFixture(t, home, true)
+				// Write SKILL.md with all 15 tools + one extra
+				extra := append(engramtools.RequiredAliases(), "engram_mem_nonexistent")
+				mustWriteFile(t, filepath.Join(home, ".claude", "skills", "engram-memory", "SKILL.md"),
+					buildEngramSkillMDFromList(extra))
+			},
+			assertion: func(t *testing.T, report HealthReport) {
+				mustStatus(t, report, "engram.tool_name_mapping", HealthFail)
+				check := findCheck(t, report, "engram.tool_name_mapping")
+				if !strings.Contains(check.Message, "not in canonical catalog") {
+					t.Errorf("message %q should mention catalog", check.Message)
+				}
+			},
+		},
+		{
+			name: "tool_mapping_catalog_tool_missing_from_asset",
+			setup: func(t *testing.T, home string) {
+				writeHealthyFixture(t, home, true)
+				// Write SKILL.md with one tool removed
+				aliases := engramtools.RequiredAliases()
+				reduced := make([]string, 0, len(aliases)-1)
+				for _, a := range aliases {
+					if a != "engram_mem_timeline" {
+						reduced = append(reduced, a)
+					}
+				}
+				mustWriteFile(t, filepath.Join(home, ".claude", "skills", "engram-memory", "SKILL.md"),
+					buildEngramSkillMDFromList(reduced))
+			},
+			assertion: func(t *testing.T, report HealthReport) {
+				mustStatus(t, report, "engram.tool_name_mapping", HealthFail)
+				check := findCheck(t, report, "engram.tool_name_mapping")
+				if !strings.Contains(check.Message, "missing catalog tools") {
+					t.Errorf("message %q should mention missing catalog tools", check.Message)
+				}
+			},
+		},
+		{
+			name: "tool_mapping_no_declarations_parseable",
+			setup: func(t *testing.T, home string) {
+				writeHealthyFixture(t, home, true)
+				// Write an empty SKILL.md
+				mustWriteFile(t, filepath.Join(home, ".claude", "skills", "engram-memory", "SKILL.md"), []byte("# Empty skill\n"))
+			},
+			assertion: func(t *testing.T, report HealthReport) {
+				mustStatus(t, report, "engram.tool_name_mapping", HealthWarn)
+			},
+		},
+		{
+			name: "settings_consistency_legacy_mcpservers",
+			setup: func(t *testing.T, home string) {
+				writeHealthyFixture(t, home, true)
+				// Write settings with legacy mcpServers.engram
+				allow := engramtools.RequiredAllowlistAsAny()
+				mustWriteJSON(t, filepath.Join(home, ".claude", "settings.json"), map[string]any{
+					"permissions": map[string]any{"allow": allow},
+					"mcpServers": map[string]any{
+						"engram": map[string]any{
+							"command": "/old/path/engram",
+							"args":    []any{"mcp"},
+						},
+					},
+				})
+			},
+			assertion: func(t *testing.T, report HealthReport) {
+				mustStatus(t, report, "engram.settings_consistency", HealthWarn)
+			},
+		},
+		// Skip chain validations
+		{
+			// settings_json_prereq_skips_consistency
+			name: "settings_json_prereq_skips_consistency",
+			setup: func(t *testing.T, home string) {
+				writeHealthyFixture(t, home, true)
+				mustWriteFile(t, filepath.Join(home, ".claude", "settings.json"), []byte("{"))
+			},
+			assertion: func(t *testing.T, report HealthReport) {
+				mustStatus(t, report, "core.settings_json", HealthFail)
+				mustStatus(t, report, "engram.settings_consistency", HealthSkip)
+			},
+		},
+		{
+			// skills_dir_prereq_skips_mapping
+			name: "skills_dir_prereq_skips_mapping",
+			setup: func(t *testing.T, home string) {
+				writeHealthyFixture(t, home, true)
+				// Remove the entire skills directory
+				if err := os.RemoveAll(filepath.Join(home, ".claude", "skills")); err != nil {
+					t.Fatalf("remove skills dir: %v", err)
+				}
+			},
+			assertion: func(t *testing.T, report HealthReport) {
+				mustStatus(t, report, "skills.dir", HealthFail)
+				mustStatus(t, report, "engram.tool_name_mapping", HealthSkip)
 			},
 		},
 	}
@@ -174,17 +430,36 @@ func TestRunHealth_DoesNotProbeClaudeMCPList(t *testing.T) {
 	createFakeClaudeCLI(t, binDir, probeMarker)
 	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
+	// Snapshot ~/.claude.json mtime before RunHealth
+	claudeJSONPath := filepath.Join(home, ".claude.json")
+	beforeStat, err := os.Stat(claudeJSONPath)
+	if err != nil {
+		t.Fatalf("stat ~/.claude.json before RunHealth: %v", err)
+	}
+	beforeMtime := beforeStat.ModTime()
+
 	if _, err := RunHealth(HealthOptions{HomeDir: home}); err != nil {
 		t.Fatalf("RunHealth() error = %v", err)
 	}
 
+	// Assert no claude probe invocation
 	if _, err := os.Stat(probeMarker); err == nil {
 		t.Fatalf("expected no claude probe invocation, marker exists: %s", probeMarker)
 	} else if !os.IsNotExist(err) {
 		t.Fatalf("stat marker: %v", err)
 	}
+
+	// Assert ~/.claude.json was NOT written during health
+	afterStat, err := os.Stat(claudeJSONPath)
+	if err != nil {
+		t.Fatalf("stat ~/.claude.json after RunHealth: %v", err)
+	}
+	if afterStat.ModTime() != beforeMtime {
+		t.Fatalf("~/.claude.json was modified during RunHealth — health must be read-only")
+	}
 }
 
+// T2.9: writeHealthyFixture extended to write ~/.claude.json and SKILL.md.
 func writeHealthyFixture(t *testing.T, home string, withOutputStyles bool) {
 	t.Helper()
 
@@ -200,11 +475,13 @@ func writeHealthyFixture(t *testing.T, home string, withOutputStyles bool) {
 	}
 
 	mustWriteFile(t, filepath.Join(claudeDir, "CLAUDE.md"), []byte("# CLAUDE\ncontent\n"))
-	mustWriteFile(t, filepath.Join(binDir, engramBinaryName()), []byte("binary"))
+
+	binaryPath := filepath.Join(binDir, engramBinaryName())
+	mustWriteFile(t, binaryPath, []byte("binary"))
 
 	settings := map[string]any{
 		"permissions": map[string]any{
-			"allow": asAny(requiredEngramMCPTools),
+			"allow": engramtools.RequiredAllowlistAsAny(),
 		},
 	}
 	mustWriteJSON(t, filepath.Join(claudeDir, "settings.json"), settings)
@@ -221,6 +498,23 @@ func writeHealthyFixture(t *testing.T, home string, withOutputStyles bool) {
 		mustWriteFile(t, path, []byte("# skill"))
 	}
 
+	// Write engram-memory SKILL.md with all catalog aliases
+	engramSkillDir := filepath.Join(skillsDir, "engram-memory")
+	if err := os.MkdirAll(engramSkillDir, 0o755); err != nil {
+		t.Fatalf("mkdir engram skill dir: %v", err)
+	}
+	mustWriteFile(t, filepath.Join(engramSkillDir, "SKILL.md"), buildEngramSkillMD())
+
+	// Write ~/.claude.json with valid mcpServers.engram
+	writeClaudeJSON(t, home, map[string]any{
+		"mcpServers": map[string]any{
+			"engram": map[string]any{
+				"command": binaryPath,
+				"args":    []any{"mcp", "--tools=agent"},
+			},
+		},
+	})
+
 	if withOutputStyles {
 		outputStyles := filepath.Join(claudeDir, "output-styles")
 		if err := os.MkdirAll(outputStyles, 0o755); err != nil {
@@ -230,12 +524,29 @@ func writeHealthyFixture(t *testing.T, home string, withOutputStyles bool) {
 	}
 }
 
-func asAny(items []string) []any {
-	out := make([]any, 0, len(items))
-	for _, item := range items {
-		out = append(out, item)
+// T2.9: writeClaudeJSON marshals content to ~/.claude.json.
+func writeClaudeJSON(t *testing.T, home string, content any) {
+	t.Helper()
+	data, err := json.Marshal(content)
+	if err != nil {
+		t.Fatalf("marshal claude.json: %v", err)
 	}
-	return out
+	mustWriteFile(t, filepath.Join(home, ".claude.json"), data)
+}
+
+// T2.9: buildEngramSkillMD generates SKILL.md with all 15 catalog aliases.
+func buildEngramSkillMD() []byte {
+	return buildEngramSkillMDFromList(engramtools.RequiredAliases())
+}
+
+// buildEngramSkillMDFromList generates SKILL.md bullet section from a given list.
+func buildEngramSkillMDFromList(aliases []string) []byte {
+	var sb strings.Builder
+	sb.WriteString("## Engram Tools\n\n")
+	for _, alias := range aliases {
+		sb.WriteString(fmt.Sprintf("- **%s** — tool description\n", alias))
+	}
+	return []byte(sb.String())
 }
 
 func mustWriteJSON(t *testing.T, path string, v any) {
@@ -269,12 +580,31 @@ func mustStatus(t *testing.T, report HealthReport, id string, want HealthStatus)
 	for _, check := range report.Checks {
 		if check.ID == id {
 			if check.Status != want {
-				t.Fatalf("check %s status = %s, want %s", id, check.Status, want)
+				t.Fatalf("check %s status = %s, want %s\nchecks:\n%s", id, check.Status, want, dumpChecks(report))
 			}
 			return
 		}
 	}
+	t.Fatalf("check %s not found\nchecks:\n%s", id, dumpChecks(report))
+}
+
+func findCheck(t *testing.T, report HealthReport, id string) HealthCheck {
+	t.Helper()
+	for _, check := range report.Checks {
+		if check.ID == id {
+			return check
+		}
+	}
 	t.Fatalf("check %s not found", id)
+	return HealthCheck{}
+}
+
+func dumpChecks(report HealthReport) string {
+	var sb strings.Builder
+	for _, c := range report.Checks {
+		sb.WriteString(fmt.Sprintf("  [%s] %s: %s\n", c.Status, c.ID, c.Message))
+	}
+	return sb.String()
 }
 
 func createFakeClaudeCLI(t *testing.T, binDir, marker string) {

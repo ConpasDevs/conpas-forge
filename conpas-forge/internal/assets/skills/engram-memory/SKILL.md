@@ -18,6 +18,10 @@ All tools are available directly — no ToolSearch or pre-loading required. Use 
 - **engram_mem_session_start** — register the start of a new coding session
 - **engram_mem_session_end** — mark a coding session as completed with an optional summary
 - **engram_mem_capture_passive** — extract and save structured learnings from text output automatically
+- **engram_mem_delete** — permanently remove an observation by ID (use `hard=true` for irreversible deletion)
+- **engram_mem_stats** — session statistics: tool calls, save count, activity summary
+- **engram_mem_timeline** — view observation history before/after a given ID
+- **engram_mem_merge_projects** — consolidate observations from multiple project names into one canonical name
 
 ### INACTIVITY NUDGE (v1.12+)
 
